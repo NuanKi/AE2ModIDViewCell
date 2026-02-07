@@ -1,4 +1,4 @@
-package me.emvoh.ae2ist;
+package me.emvoh.midviewcell;
 
 import net.minecraftforge.common.ForgeVersion;
 import net.minecraftforge.fml.common.Optional;
@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 @IFMLLoadingPlugin.MCVersion(ForgeVersion.mcVersion)
-@IFMLLoadingPlugin.Name("AE2-ImprovedSearch")
+@IFMLLoadingPlugin.Name("AE2-ModIDViewCell")
 @Optional.Interface(iface = "zone.rong.mixinbooter.ILateMixinLoader", modid = "mixinbooter")
 public class MixinLoader implements IFMLLoadingPlugin, ILateMixinLoader {
 
@@ -43,6 +43,6 @@ public class MixinLoader implements IFMLLoadingPlugin, ILateMixinLoader {
     @Override
     @Optional.Method(modid = "mixinbooter")
     public List<String> getMixinConfigs() {
-        return Collections.singletonList("mixins.improvedae2search.json");
+        return Collections.singletonList("mixins.ae2modidviewcell.json");
     }
 }

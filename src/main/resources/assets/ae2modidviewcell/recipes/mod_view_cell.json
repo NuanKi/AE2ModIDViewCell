@@ -1,0 +1,11 @@
+{
+  "type": "forge:ore_shapeless",
+  "ingredients": [
+    { "item": "appliedenergistics2:view_cell" },
+    { "item": "minecraft:book" }
+  ],
+  "result": {
+    "item": "ae2modidviewcell:mod_view_cell",
+    "count": 1
+  }
+}

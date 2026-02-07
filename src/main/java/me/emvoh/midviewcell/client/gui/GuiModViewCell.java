@@ -2,8 +2,10 @@ package me.emvoh.midviewcell.client.gui;
 
 
 import appeng.core.sync.network.NetworkHandler;
+import me.emvoh.midviewcell.Tags;
 import me.emvoh.midviewcell.client.gui.widgets.GuiTexturedButton;
 import me.emvoh.midviewcell.items.ModItemViewCell;
+import me.emvoh.midviewcell.packets.MidviewNetwork;
 import me.emvoh.midviewcell.packets.ModIDViewCellPacket;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
@@ -24,7 +26,7 @@ import java.util.List;
 public class GuiModViewCell extends GuiScreen {
     private final EnumHand hand;
 
-    private static final ResourceLocation BG = new ResourceLocation("modidviewcell", "textures/guis/mod_view_cell.png");
+    private static final ResourceLocation BG = new ResourceLocation(Tags.MODID, "textures/guis/mod_view_cell.png");
 
     // Your atlas size (set HEIGHT to your real png height, 512 is common)
     private static final int TEX_W = 512;
@@ -529,16 +531,8 @@ public class GuiModViewCell extends GuiScreen {
         return s;
     }
 
-
-    /**
-     * Stub for now so this class compiles.
-     * Later you will replace this with your actual packet send.
-     *
-     * Server-side should validate the player is still holding the same ModItemViewCell
-     * and then call ModItemViewCell.setTagFilters(stack, whitelist, blacklist).
-     */
     protected void sendSaveToServer(List<String> whitelist, List<String> blacklist) {
-        NetworkHandler.instance().sendToServer(new ModIDViewCellPacket(this.hand, whitelist, blacklist));
+        MidviewNetwork.NET.sendToServer(new ModIDViewCellPacket(hand, whitelist, blacklist));
     }
 
 

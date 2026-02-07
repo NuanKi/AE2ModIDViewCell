@@ -1,6 +1,6 @@
 {
     "parent": "item/generated",
     "textures": {
-        "layer0": "modidviewcell:items/mod_view_cell"
+        "layer0": "ae2modidviewcell:items/mod_view_cell"
     }
 }

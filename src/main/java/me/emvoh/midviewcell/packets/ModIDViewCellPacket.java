@@ -1,32 +1,51 @@
 package me.emvoh.midviewcell.packets;
 
-import appeng.core.sync.AppEngPacket;
-import appeng.core.sync.network.INetworkInfo;
+
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import me.emvoh.midviewcell.items.ModItemViewCell;
-import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.EnumHand;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
+import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 
-public class ModIDViewCellPacket extends AppEngPacket {
+public class ModIDViewCellPacket implements IMessage {
+
     private static final int MAX_ENTRIES = 256;
     private static final int MAX_STR_LEN = 64;
 
-    private final EnumHand hand;
-    private final List<String> whitelist;
-    private final List<String> blacklist;
+    private EnumHand hand;
+    private List<String> whitelist;
+    private List<String> blacklist;
 
-    // decode (called by handler after packet id was read)
-    public ModIDViewCellPacket(final ByteBuf stream) throws IOException {
-        final PacketBuffer pb = new PacketBuffer(stream);
+    public ModIDViewCellPacket() {
+        // required empty ctor
+    }
+
+    public ModIDViewCellPacket(EnumHand hand, List<String> whitelist, List<String> blacklist) {
+        this.hand = hand == null ? EnumHand.MAIN_HAND : hand;
+        this.whitelist = whitelist == null ? new ArrayList<>() : whitelist;
+        this.blacklist = blacklist == null ? new ArrayList<>() : blacklist;
+    }
+
+    @Override
+    public void toBytes(ByteBuf buf) {
+        PacketBuffer pb = new PacketBuffer(buf);
+
+        pb.writeByte(this.hand.ordinal());
+        writeStringList(pb, this.whitelist);
+        writeStringList(pb, this.blacklist);
+    }
+
+    @Override
+    public void fromBytes(ByteBuf buf) {
+        PacketBuffer pb = new PacketBuffer(buf);
 
         int handOrdinal = pb.readByte() & 0xFF;
         this.hand = EnumHand.values()[Math.min(handOrdinal, EnumHand.values().length - 1)];
@@ -35,42 +54,30 @@ public class ModIDViewCellPacket extends AppEngPacket {
         this.blacklist = readStringList(pb);
     }
 
+    public static class Handler implements IMessageHandler<ModIDViewCellPacket, IMessage> {
+        @Override
+        public IMessage onMessage(ModIDViewCellPacket msg, MessageContext ctx) {
+            EntityPlayerMP sender = ctx.getServerHandler().player;
 
-    public ModIDViewCellPacket(final EnumHand hand, final List<String> whitelist, final List<String> blacklist) {
-        this.hand = hand == null ? EnumHand.MAIN_HAND : hand;
-        this.whitelist = whitelist == null ? new ArrayList<>() : whitelist;
-        this.blacklist = blacklist == null ? new ArrayList<>() : blacklist;
+            sender.getServerWorld().addScheduledTask(() -> {
+                ItemStack held = sender.getHeldItem(msg.hand);
+                if (held.isEmpty() || !(held.getItem() instanceof ModItemViewCell)) {
+                    return;
+                }
 
-        final ByteBuf data = Unpooled.buffer();
-        final PacketBuffer pb = new PacketBuffer(data);
+                List<String> wl = sanitize(msg.whitelist);
+                List<String> bl = sanitize(msg.blacklist);
 
-        pb.writeInt(this.getPacketID());
-        pb.writeByte(this.hand.ordinal());
+                ModItemViewCell.setTagFilters(held, wl, bl);
 
-        writeStringList(pb, this.whitelist);
-        writeStringList(pb, this.blacklist);
+                sender.inventory.markDirty();
+                sender.inventoryContainer.detectAndSendChanges();
+                if (sender.openContainer != null) {
+                    sender.openContainer.detectAndSendChanges();
+                }
+            });
 
-        this.configureWrite(data);
-    }
-
-    @Override
-    public void serverPacketData(final INetworkInfo manager, final AppEngPacket packet, final EntityPlayer player) {
-        final EntityPlayerMP sender = (EntityPlayerMP) player;
-
-        final ItemStack held = sender.getHeldItem(this.hand);
-        if (held.isEmpty() || !(held.getItem() instanceof ModItemViewCell)) {
-            return;
-        }
-
-        final List<String> wl = sanitize(this.whitelist);
-        final List<String> bl = sanitize(this.blacklist);
-
-        ModItemViewCell.setTagFilters(held, wl, bl);
-
-        sender.inventory.markDirty();
-        sender.inventoryContainer.detectAndSendChanges();
-        if (sender.openContainer != null) {
-            sender.openContainer.detectAndSendChanges();
+            return null;
         }
     }
 
@@ -107,7 +114,6 @@ public class ModIDViewCellPacket extends AppEngPacket {
 
             s = s.trim().toLowerCase();
 
-            // allow "@modid" input, store as "modid"
             if (s.startsWith("@")) s = s.substring(1).trim();
 
             while (!s.isEmpty() && (s.endsWith(",") || s.endsWith(";"))) {

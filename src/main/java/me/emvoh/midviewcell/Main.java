@@ -1,8 +1,10 @@
 package me.emvoh.midviewcell;
 
+import me.emvoh.midviewcell.items.ModItemViewCell;
 import net.minecraft.block.Block;
 import net.minecraft.item.Item;
 import net.minecraft.item.crafting.IRecipe;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegistryEvent;
 import net.minecraftforge.fml.common.Mod;
@@ -21,12 +23,14 @@ public class Main {
     public static final Logger LOGGER = LogManager.getLogger(Tags.MODID);
 
     @EventHandler
-    // preInit "Run before anything else. Read your config, create blocks, items, etc. (Remove if not needed)
     public void preInit(FMLPreInitializationEvent event) {
-        // register to the event bus so that we can listen to events
         MinecraftForge.EVENT_BUS.register(this);
-        LOGGER.info("I am " + Tags.MODNAME + " + at version " + Tags.VERSION);
+
+        me.emvoh.midviewcell.packets.MidviewNetwork.init();
+
+        LOGGER.info("I am " + Tags.MODNAME + " at version " + Tags.VERSION);
     }
+
 
     @SubscribeEvent
     // Register recipes here (Remove if not needed)
@@ -37,6 +41,7 @@ public class Main {
     @SubscribeEvent
     // Register items here (Remove if not needed)
     public void registerItems(RegistryEvent.Register<Item> event) {
+        event.getRegistry().register(MOD_VIEW_CELL);
 
     }
 
@@ -60,4 +65,10 @@ public class Main {
     // register server commands in this event handler (Remove if not needed)
     public void serverStarting(FMLServerStartingEvent event) {
     }
+
+    public static final Item MOD_VIEW_CELL = new ModItemViewCell()
+            .setRegistryName(new ResourceLocation(Tags.MODID, "mod_view_cell"))
+            .setTranslationKey(Tags.MODID + ".mod_view_cell")
+            .setMaxStackSize(1);
+
 }

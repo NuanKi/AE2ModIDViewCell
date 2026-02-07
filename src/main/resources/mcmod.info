@@ -1,7 +1,7 @@
 [{
     "modid": "${modid}",
     "name": "${modname}",
-    "description": "An example mod for Minecraft 1.12.2 with Forge",
+    "description": "Mod ID View Cell for AE2 UEL",
     "version": "${version}",
     "mcversion": "${mcversion}",
     "logoFile": "",
