@@ -11,7 +11,10 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 public abstract class MixinSlotRestrictedInput_ViewCell {
 
     @Redirect(
-            method = "isItemValid",
+            method = {
+                    "isItemValid(Lnet/minecraft/item/ItemStack;)Z",   // dev (deobf)
+                    "func_75214_a(Lnet/minecraft/item/ItemStack;)Z"   // prod (reobf/SRG override of Slot#isItemValid)
+            },
             at = @At(
                     value = "INVOKE",
                     target = "Lappeng/api/definitions/IItemDefinition;isSameAs(Lnet/minecraft/item/ItemStack;)Z",
