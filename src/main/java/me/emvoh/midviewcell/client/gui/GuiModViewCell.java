@@ -1,7 +1,5 @@
 package me.emvoh.midviewcell.client.gui;
 
-
-import appeng.core.sync.network.NetworkHandler;
 import me.emvoh.midviewcell.Tags;
 import me.emvoh.midviewcell.client.gui.widgets.GuiTexturedButton;
 import me.emvoh.midviewcell.items.ModItemViewCell;
@@ -28,7 +26,6 @@ public class GuiModViewCell extends GuiScreen {
 
     private static final ResourceLocation BG = new ResourceLocation(Tags.MODID, "textures/guis/mod_view_cell.png");
 
-    // Your atlas size (set HEIGHT to your real png height, 512 is common)
     private static final int TEX_W = 512;
     private static final int TEX_H = 512;
 
@@ -40,14 +37,14 @@ public class GuiModViewCell extends GuiScreen {
     private static final int U_LISTBOX = 0;
     private static final int V_LISTBOX = 305;
 
-    // Pixel sizes (match your GUI)
+    // Pixel sizes
     private static final int ENTRY_W = 232;
     private static final int ENTRY_H = 14;
     private int entryBoxX;
     private int entryBoxY;
 
     private static final int ENTRY_PAD_X = 4;
-    private static final int ENTRY_PAD_Y = 3; // this matches your placeholder look
+    private static final int ENTRY_PAD_Y = 3;
 
 
     private static final int MAX_ENTRY_LEN = 256;
@@ -80,7 +77,6 @@ public class GuiModViewCell extends GuiScreen {
     private int blX, blY;
 
     // Text colors
-// UI colors (RGB for FontRenderer)
     private static final int COL_TITLE         = 0x505050;
     private static final int COL_LABEL         = 0x505050;
     private static final int COL_PLACEHOLDER   = 0xCFCFCF;
@@ -88,6 +84,11 @@ public class GuiModViewCell extends GuiScreen {
     private static final int COL_LIST_TEXT     = 0xF2F2F2;
     private static final int COL_LIST_TEXT_SEL = 0xFFFFFF;
     private static final int COL_LIST_SEL_BG   = 0x7C81C6FF;
+
+    private enum ActiveList { WL, BL }
+    private ActiveList activeList = ActiveList.WL;
+    private ActiveList lastAddedList = ActiveList.WL;
+    private String lastAddedValue = null;
 
     public GuiModViewCell(ItemStack stack, EnumHand hand) {
         this.stack = stack.copy();
@@ -125,9 +126,6 @@ public class GuiModViewCell extends GuiScreen {
         this.entryField.setMaxStringLength(MAX_ENTRY_LEN);
         this.entryField.setFocused(false);
         this.entryField.setEnableBackgroundDrawing(false);
-;
-
-        // Boxes (push them down so labels do not collide with Add buttons)
         this.boxW = (guiWidth - margin * 2 - boxGap) / 2;
 
         wlX = guiLeft + margin;
@@ -138,7 +136,7 @@ public class GuiModViewCell extends GuiScreen {
 
         this.buttonList.clear();
 
-        // Add buttons row
+        // Add to Whitelist / Blacklist buttons row
         int addBtnY = guiTop + 50;
         this.buttonList.add(new GuiTexturedButton(
                 2, wlX, addBtnY, 111, 18, "Add to Whitelist",
@@ -149,7 +147,7 @@ public class GuiModViewCell extends GuiScreen {
                 BG, TEX_W, TEX_H, 0, 420, 439
         ));
 
-        // Remove / Clear row (exactly same size as Add buttons: 111x18)
+        // Remove / Clear buttons row
         int toolsY = wlY + boxH + 10;
 
         this.buttonList.add(new GuiTexturedButton(
@@ -161,7 +159,7 @@ public class GuiModViewCell extends GuiScreen {
                 BG, TEX_W, TEX_H, 0, 420, 439
         ));
 
-        // Save / Cancel row (anchored to bottom with margin)
+        // Save / Cancel buttons row
         int bottomBtnH = 18;
         int bottomY = guiTop + guiHeight - margin - bottomBtnH;
 
@@ -197,26 +195,26 @@ public class GuiModViewCell extends GuiScreen {
     protected void actionPerformed(GuiButton button) throws IOException {
         switch (button.id) {
             case 0: // Save
-                normalizeInPlace(whitelist);
-                normalizeInPlace(blacklist);
-                // This is where you will send a packet client -> server later
-                sendSaveToServer(new ArrayList<>(whitelist), new ArrayList<>(blacklist));
-                this.mc.displayGuiScreen(null);
+                saveAndClose();
                 break;
+
 
             case 1: // Cancel
                 this.mc.displayGuiScreen(null);
                 break;
 
             case 2: // Add -> WL
+                activeList = ActiveList.WL;
                 addEntryTextToList(whitelist);
                 clampScrolls();
                 break;
 
             case 3: // Add -> BL
+                activeList = ActiveList.BL;
                 addEntryTextToList(blacklist);
                 clampScrolls();
                 break;
+
 
             case 4: // Remove selected
                 removeSelected();
@@ -230,6 +228,8 @@ public class GuiModViewCell extends GuiScreen {
                 blSelected = -1;
                 wlScroll = 0;
                 blScroll = 0;
+                lastAddedValue = null;
+                lastAddedList = ActiveList.WL;
                 break;
 
             default:
@@ -239,34 +239,75 @@ public class GuiModViewCell extends GuiScreen {
 
     @Override
     protected void keyTyped(char typedChar, int keyCode) throws IOException {
-        // Tab toggles focus on the entry field
+        // CTRL+S saves
+        if (isCtrlKeyDown() && keyCode == Keyboard.KEY_S) {
+            saveAndClose();
+            return;
+        }
+
+        // TAB toggles focus on the entry field
         if (keyCode == Keyboard.KEY_TAB) {
             boolean newFocus = !this.entryField.isFocused();
             this.entryField.setFocused(newFocus);
-            if (newFocus) {
-                this.entryField.setCursorPositionEnd();
+            if (newFocus) this.entryField.setCursorPositionEnd();
+            return;
+        }
+
+        boolean entryFocused = (this.entryField != null && this.entryField.isFocused());
+
+        // List editing shortcuts only when entry is not focused
+        if (!entryFocused) {
+            if (keyCode == Keyboard.KEY_DELETE) {
+                removeSelectedOrLastAdded();
+                clampScrolls();
+                return;
             }
-            return;
+
+            if (keyCode == Keyboard.KEY_UP) {
+                moveSelection(-1);
+                clampScrolls();
+                return;
+            }
+
+            if (keyCode == Keyboard.KEY_DOWN) {
+                moveSelection(1);
+                clampScrolls();
+                return;
+            }
         }
 
-        // Let the text field consume typing when focused
-        if (this.entryField.textboxKeyTyped(typedChar, keyCode)) {
-            return;
-        }
-
-        // Convenience: Enter adds to active list
+        // Enter behavior:
+        // - If entry focused and has text: add to active list
+        // - If entry focused and empty: save
+        // - If entry not focused: save
         if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
-            if (blSelected != -1 && wlSelected == -1) {
-                addEntryTextToList(blacklist);
-            } else {
-                addEntryTextToList(whitelist);
+            if (entryFocused) {
+                String raw = this.entryField.getText();
+                if (raw != null && !raw.trim().isEmpty()) {
+                    if (activeList == ActiveList.BL) {
+                        addEntryTextToList(blacklist);
+                    } else {
+                        addEntryTextToList(whitelist);
+                    }
+                    clampScrolls();
+                } else {
+                    saveAndClose();
+                }
+                return;
             }
-            clampScrolls();
+
+            saveAndClose();
+            return;
+        }
+
+        if (this.entryField != null && this.entryField.textboxKeyTyped(typedChar, keyCode)) {
             return;
         }
 
         super.keyTyped(typedChar, keyCode);
     }
+
+
 
 
     @Override
@@ -280,6 +321,7 @@ public class GuiModViewCell extends GuiScreen {
         // Handle selecting entries in list boxes
         int wlIdx = clickSelectIndex(mouseX, mouseY, wlX, wlY, boxW, boxH, whitelist, wlScroll);
         if (wlIdx != -1) {
+            activeList = ActiveList.WL;
             wlSelected = wlIdx;
             blSelected = -1;
             return;
@@ -287,6 +329,7 @@ public class GuiModViewCell extends GuiScreen {
 
         int blIdx = clickSelectIndex(mouseX, mouseY, blX, blY, boxW, boxH, blacklist, blScroll);
         if (blIdx != -1) {
+            activeList = ActiveList.BL;
             blSelected = blIdx;
             wlSelected = -1;
         }
@@ -306,8 +349,10 @@ public class GuiModViewCell extends GuiScreen {
         int visible = Math.max(1, (boxH - 4) / lineH);
 
         if (isInside(mouseX, mouseY, wlX, wlY, boxW, boxH)) {
+            activeList = ActiveList.WL;
             wlScroll = applyScroll(wlScroll, wheel, whitelist, visible);
         } else if (isInside(mouseX, mouseY, blX, blY, boxW, boxH)) {
+            activeList = ActiveList.BL;
             blScroll = applyScroll(blScroll, wheel, blacklist, visible);
         }
     }
@@ -319,7 +364,6 @@ public class GuiModViewCell extends GuiScreen {
         GlStateManager.color(1f, 1f, 1f, 1f);
         this.mc.getTextureManager().bindTexture(BG);
 
-        // Draw the full 256x272 background
         drawModalRectWithCustomSizedTexture(
                 guiLeft, guiTop,
                 0, 0,
@@ -339,13 +383,12 @@ public class GuiModViewCell extends GuiScreen {
                 false // no shadow
         );
 
-        // Labels (these bind the font texture)
+        // Labels
         this.fontRenderer.drawString("Whitelist", wlX, wlY - 12, COL_LABEL);
         this.fontRenderer.drawString("Blacklist", blX, blY - 12, COL_LABEL);
 
         // Entry field
         if (this.entryField != null) {
-            // Re-bind GUI texture because font rendering changed it
             GlStateManager.color(1f, 1f, 1f, 1f);
             this.mc.getTextureManager().bindTexture(BG);
 
@@ -359,7 +402,6 @@ public class GuiModViewCell extends GuiScreen {
             );
 
 
-            // This draws the text + cursor (and binds font again, which is fine)
             this.entryField.drawTextBox();
             drawEntryPlaceholder();
         }
@@ -443,12 +485,7 @@ public class GuiModViewCell extends GuiScreen {
     }
 
     private String trimToWidth(String s, int widthPx) {
-        if (s == null) return "";
-        String out = s;
-        while (this.fontRenderer.getStringWidth(out) > widthPx && out.length() > 0) {
-            out = out.substring(0, out.length() - 1);
-        }
-        return out;
+        return s == null ? "" : this.fontRenderer.trimStringToWidth(s, widthPx);
     }
 
     /* =========================
@@ -467,15 +504,23 @@ public class GuiModViewCell extends GuiScreen {
         String[] parts = raw.split("[,;\\s]+");
 
         LinkedHashSet<String> merged = new LinkedHashSet<>(target);
+
+        String lastNew = null;
         for (String p : parts) {
             String norm = normalizeModId(p);
             if (!norm.isEmpty()) {
-                merged.add(norm);
+                boolean added = merged.add(norm);
+                if (added) lastNew = norm;
             }
         }
 
         target.clear();
         target.addAll(merged);
+
+        if (lastNew != null) {
+            lastAddedValue = lastNew;
+            lastAddedList = (target == whitelist) ? ActiveList.WL : ActiveList.BL;
+        }
 
         this.entryField.setText("");
     }
@@ -483,7 +528,8 @@ public class GuiModViewCell extends GuiScreen {
     private void removeSelected() {
         if (wlSelected != -1) {
             if (wlSelected >= 0 && wlSelected < whitelist.size()) {
-                whitelist.remove(wlSelected);
+                String removed = whitelist.remove(wlSelected);
+                onRemoved(ActiveList.WL, removed);
             }
             wlSelected = -1;
             return;
@@ -491,7 +537,8 @@ public class GuiModViewCell extends GuiScreen {
 
         if (blSelected != -1) {
             if (blSelected >= 0 && blSelected < blacklist.size()) {
-                blacklist.remove(blSelected);
+                String removed = blacklist.remove(blSelected);
+                onRemoved(ActiveList.BL, removed);
             }
             blSelected = -1;
         }
@@ -551,6 +598,108 @@ public class GuiModViewCell extends GuiScreen {
         int x = this.entryField.x;
         int y = this.entryField.y;
         this.fontRenderer.drawString("Enter ModIDs (comma or space)", x, y, COL_PLACEHOLDER);
+    }
+
+    private void saveAndClose() {
+        normalizeInPlace(whitelist);
+        normalizeInPlace(blacklist);
+        sendSaveToServer(new ArrayList<>(whitelist), new ArrayList<>(blacklist));
+        this.mc.displayGuiScreen(null);
+    }
+
+    private int getVisibleRows() {
+        int lineH = this.fontRenderer.FONT_HEIGHT + 2;
+        return Math.max(1, (boxH - 4) / lineH);
+    }
+
+    private int scrollToMakeVisible(int scroll, int selected, int listSize) {
+        int visible = getVisibleRows();
+        int maxScroll = Math.max(0, listSize - visible);
+
+        if (selected < scroll) {
+            scroll = selected;
+        } else if (selected >= scroll + visible) {
+            scroll = selected - visible + 1;
+        }
+
+        if (scroll < 0) scroll = 0;
+        if (scroll > maxScroll) scroll = maxScroll;
+        return scroll;
+    }
+
+    private void moveSelection(int delta) {
+        List<String> list = (activeList == ActiveList.WL) ? whitelist : blacklist;
+        if (list.isEmpty()) {
+            wlSelected = -1;
+            blSelected = -1;
+            return;
+        }
+
+        int selected = (activeList == ActiveList.WL) ? wlSelected : blSelected;
+
+        if (selected < 0) {
+            selected = (delta > 0) ? 0 : (list.size() - 1);
+        } else {
+            selected = Math.max(0, Math.min(list.size() - 1, selected + delta));
+        }
+
+        if (activeList == ActiveList.WL) {
+            wlSelected = selected;
+            blSelected = -1;
+            wlScroll = scrollToMakeVisible(wlScroll, wlSelected, whitelist.size());
+        } else {
+            blSelected = selected;
+            wlSelected = -1;
+            blScroll = scrollToMakeVisible(blScroll, blSelected, blacklist.size());
+        }
+    }
+
+    private void removeSelectedOrLastAdded() {
+        if (wlSelected != -1) {
+            if (wlSelected >= 0 && wlSelected < whitelist.size()) {
+                String removed = whitelist.remove(wlSelected);
+                onRemoved(ActiveList.WL, removed);
+            }
+            wlSelected = -1;
+            return;
+        }
+
+        if (blSelected != -1) {
+            if (blSelected >= 0 && blSelected < blacklist.size()) {
+                String removed = blacklist.remove(blSelected);
+                onRemoved(ActiveList.BL, removed);
+            }
+            blSelected = -1;
+            return;
+        }
+
+        if (lastAddedValue != null) {
+            List<String> list = (lastAddedList == ActiveList.WL) ? whitelist : blacklist;
+
+            if (list.remove(lastAddedValue)) {
+                lastAddedValue = list.isEmpty() ? null : list.get(list.size() - 1);
+                return;
+            } else {
+                // stale pointer, clear it so we do not keep trying
+                lastAddedValue = null;
+            }
+        }
+
+        List<String> list = (activeList == ActiveList.WL) ? whitelist : blacklist;
+        if (!list.isEmpty()) {
+            ActiveList which = activeList;
+            String removed = list.remove(list.size() - 1);
+            onRemoved(which, removed);
+        }
+    }
+
+    private void onRemoved(ActiveList list, String removed) {
+        if (removed == null) return;
+
+        if (removed.equals(lastAddedValue) && list == lastAddedList) {
+            List<String> l = (list == ActiveList.WL) ? whitelist : blacklist;
+            lastAddedValue = l.isEmpty() ? null : l.get(l.size() - 1);
+        }
     }
 
 }

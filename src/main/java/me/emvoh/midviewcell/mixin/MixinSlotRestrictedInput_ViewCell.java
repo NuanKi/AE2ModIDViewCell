@@ -12,8 +12,8 @@ public abstract class MixinSlotRestrictedInput_ViewCell {
 
     @Redirect(
             method = {
-                    "isItemValid(Lnet/minecraft/item/ItemStack;)Z",   // dev (deobf)
-                    "func_75214_a(Lnet/minecraft/item/ItemStack;)Z"   // prod (reobf/SRG override of Slot#isItemValid)
+                    "isItemValid(Lnet/minecraft/item/ItemStack;)Z",
+                    "func_75214_a(Lnet/minecraft/item/ItemStack;)Z"
             },
             at = @At(
                     value = "INVOKE",

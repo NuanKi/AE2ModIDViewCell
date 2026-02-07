@@ -42,7 +42,7 @@ public abstract class MixinItemViewCell_CreateFilter {
                 continue;
             }
 
-            // Your custom view cell (modid whitelist/blacklist)
+            // Custom view cell (modid whitelist/blacklist)
             if (currentViewCell.getItem() instanceof me.emvoh.midviewcell.items.ModItemViewCell) {
 
                 final List<String> wl = me.emvoh.midviewcell.items.ModItemViewCell.getTagWhitelist(currentViewCell);
@@ -51,7 +51,6 @@ public abstract class MixinItemViewCell_CreateFilter {
                 boolean addedAnything = false;
 
                 if (wl != null && !wl.isEmpty()) {
-                    // Change this class path if your ModIdPriorityList is in a different package
                     myMergedList.addNewList(new me.emvoh.midviewcell.util.ModIdPriorityList<>(wl), true);
                     addedAnything = true;
                 }
