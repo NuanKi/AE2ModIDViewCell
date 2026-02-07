@@ -1,16 +1,14 @@
-# AE2 Mod ID View Cell
+[![Downloads](http://cf.way2muchnoise.eu/1456030.svg)](https://www.curseforge.com/minecraft/mc-mods/ae2-mod-id-view-cell)
+[![MCVersion](http://cf.way2muchnoise.eu/versions/1456030.svg)](https://www.curseforge.com/minecraft/mc-mods/ae2-mod-id-view-cell)
+[![GitHub issues](https://img.shields.io/github/issues/NuanKi/AE2ModIDViewCell.svg)](https://github.com/NuanKi/AE2ModIDViewCell/issues)
+[![GitHub pull requests](https://img.shields.io/github/issues-pr/NuanKi/AE2ModIDViewCell.svg)](https://github.com/NuanKi/AE2ModIDViewCell/pulls)
 
-[![Available on CurseForge](https://cf.way2muchnoise.eu/title/1456030.svg?badge_style=for_the_badge)](https://www.curseforge.com/minecraft/mc-mods/ae2-mod-id-view-cell)
-[![CurseForge Downloads](https://cf.way2muchnoise.eu/1456030.svg?badge_style=for_the_badge)](https://www.curseforge.com/minecraft/mc-mods/ae2-mod-id-view-cell)
+# AE2 Mod ID View Cell
 
 A custom Applied Energistics 2 view cell that filters items by **mod ID**, using a simple GUI with **whitelist** and **blacklist** lists.
 
-## Download
-- CurseForge: https://www.curseforge.com/minecraft/mc-mods/ae2-mod-id-view-cell
-
-## Requirements
-- Minecraft 1.12.2
-- AE2 (UEL)
+## CurseForge
+https://www.curseforge.com/minecraft/mc-mods/ae2-mod-id-view-cell
 
 ## Features
 - Mod ID filtering using **Whitelist** and **Blacklist**
@@ -44,8 +42,8 @@ You can paste multiple entries like:
 - **Up / Down**: Move selection in the active list and auto-scroll to keep it visible
 - Mouse wheel over a list: Scroll that list (also sets it as the active list)
 
-## Development
-This is a Minecraft Forge mod (Minecraft 1.12.2).
+## Building
+This is a Minecraft Forge mod for 1.12.2.
 
 Typical workflow:
 1. Clone the repository
