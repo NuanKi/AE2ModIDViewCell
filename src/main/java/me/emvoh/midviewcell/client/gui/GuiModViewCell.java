@@ -76,6 +76,16 @@ public class GuiModViewCell extends GuiScreen {
     private int wlX, wlY;
     private int blX, blY;
 
+    // Scrollbar
+    private static final int SCROLL_W = 4;          // thumb width
+    private static final int SCROLL_PAD_RIGHT = 2;  // padding from inner right edge
+    private static final int SCROLL_MIN_THUMB_H = 8;
+
+    private static final int COL_SCROLL_TRACK = 0x40000000; // semi-transparent black
+    private static final int COL_SCROLL_THUMB = 0x80FFFFFF; // semi-transparent white
+    private static final int COL_SCROLL_THUMB_ACTIVE = 0xB0FFFFFF;
+
+
     // Text colors
     private static final int COL_TITLE         = 0x505050;
     private static final int COL_LABEL         = 0x505050;
@@ -418,7 +428,6 @@ public class GuiModViewCell extends GuiScreen {
        ========================= */
 
     private void drawStringListBox(int x, int y, int w, int h, List<String> list, int selected, int scroll) {
-        // border
         GlStateManager.color(1f, 1f, 1f, 1f);
         this.mc.getTextureManager().bindTexture(BG);
 
@@ -429,12 +438,13 @@ public class GuiModViewCell extends GuiScreen {
                 TEX_W, TEX_H
         );
 
-
         int lineH = this.fontRenderer.FONT_HEIGHT + 2;
         int visible = Math.max(1, (h - 4) / lineH);
 
         int maxScroll = Math.max(0, list.size() - visible);
         int start = Math.max(0, Math.min(scroll, maxScroll));
+
+        int textMaxWidth = w - 8 - (SCROLL_W + SCROLL_PAD_RIGHT + 2);
 
         for (int i = 0; i < visible; i++) {
             int idx = start + i;
@@ -447,9 +457,11 @@ public class GuiModViewCell extends GuiScreen {
             }
 
             int textColor = (idx == selected) ? COL_LIST_TEXT_SEL : COL_LIST_TEXT;
-            this.fontRenderer.drawString(trimToWidth(list.get(idx), w - 8), x + 4, yy, textColor);
-
+            this.fontRenderer.drawString(trimToWidth(list.get(idx), textMaxWidth), x + 4, yy, textColor);
         }
+
+        boolean active = (activeList == ActiveList.WL && list == whitelist) || (activeList == ActiveList.BL && list == blacklist);
+        drawScrollbar(x, y, w, h, list.size(), start, visible, active);
     }
 
     private int clickSelectIndex(int mouseX, int mouseY, int x, int y, int w, int h, List<String> list, int scroll) {
@@ -702,4 +714,29 @@ public class GuiModViewCell extends GuiScreen {
         }
     }
 
+    private void drawScrollbar(int x, int y, int w, int h, int listSize, int scroll, int visibleRows, boolean active) {
+        if (listSize <= 0) return;
+
+        int maxScroll = Math.max(0, listSize - visibleRows);
+        if (maxScroll <= 0) return; // no scrollbar needed
+
+        int innerY = y + 2;
+        int innerH = h - 4;
+
+        float ratio = (float) visibleRows / (float) listSize;
+        int thumbH = Math.max(SCROLL_MIN_THUMB_H, (int) (innerH * ratio));
+
+        int travel = innerH - thumbH;
+        int thumbY = innerY + (int) (travel * (scroll / (float) maxScroll));
+
+        int barX2 = x + w - 2 - SCROLL_PAD_RIGHT;
+        int barX1 = barX2 - SCROLL_W;
+
+        // track
+        drawRect(barX1, innerY, barX2, innerY + innerH, COL_SCROLL_TRACK);
+
+        // thumb
+        int thumbCol = active ? COL_SCROLL_THUMB_ACTIVE : COL_SCROLL_THUMB;
+        drawRect(barX1, thumbY, barX2, thumbY + thumbH, thumbCol);
+    }
 }
