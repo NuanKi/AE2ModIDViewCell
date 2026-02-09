@@ -3,6 +3,9 @@ package me.emvoh.midviewcell.items;
 import appeng.items.storage.ItemViewCell;
 import appeng.util.Platform;
 import me.emvoh.midviewcell.client.gui.GuiModViewCell;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -11,8 +14,11 @@ import net.minecraft.nbt.NBTTagString;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.EnumActionResult;
 import net.minecraft.util.EnumHand;
+import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.Constants;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -24,6 +30,7 @@ public class ModItemViewCell extends ItemViewCell {
     private static final String TAG_BLACKLIST = "ModViewCell_BlackList";
 
     public ModItemViewCell() {
+        super();
         this.setMaxStackSize(1);
     }
 
@@ -114,16 +121,48 @@ public class ModItemViewCell extends ItemViewCell {
 
     @Override
     public ActionResult<ItemStack> onItemRightClick(World world, EntityPlayer player, EnumHand hand) {
-        ItemStack stack = player.getHeldItem(hand);
+        final ItemStack stack = player.getHeldItem(hand);
 
-        if (!player.isSneaking()) {
-            return new ActionResult<>(EnumActionResult.PASS, stack);
+        if (player.isSneaking()) {
+            if (world.isRemote) {
+                GuiModViewCell.open(stack, hand);
+            }
+            return new ActionResult<>(EnumActionResult.SUCCESS, stack);
+        }
+        return super.onItemRightClick(world, player, hand);
+    }
+
+    @Override
+    @SideOnly(Side.CLIENT)
+    protected void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines, final ITooltipFlag advancedTooltips) {
+        super.addCheckedInformation(stack, world, lines, advancedTooltips);
+
+        if (!GuiScreen.isShiftKeyDown()) {
+            lines.add(TextFormatting.DARK_GRAY.toString() + TextFormatting.ITALIC + I18n.format("tooltip.appliedenergistics2.mod_view_cell.hold_shift"));
+            return;
         }
 
-        if (world.isRemote) {
-            GuiModViewCell.open(stack, hand);
+        final List<String> wl = getTagWhitelist(stack);
+        final List<String> bl = getTagBlacklist(stack);
+
+        lines.add(""); // spacer line
+
+        lines.add(TextFormatting.GREEN + I18n.format("tooltip.appliedenergistics2.mod_view_cell.whitelist"));
+        if (wl.isEmpty()) {
+            lines.add(TextFormatting.DARK_GRAY.toString() + TextFormatting.ITALIC + I18n.format("tooltip.appliedenergistics2.mod_view_cell.none"));
+        } else {
+            for (final String s : wl) {
+                lines.add(TextFormatting.DARK_GRAY + "  - " + TextFormatting.GRAY + I18n.format("tooltip.appliedenergistics2.mod_view_cell.entry", s));
+            }
         }
 
-        return new ActionResult<>(EnumActionResult.SUCCESS, stack);
+        lines.add(TextFormatting.RED + I18n.format("tooltip.appliedenergistics2.mod_view_cell.blacklist"));
+        if (bl.isEmpty()) {
+            lines.add(TextFormatting.DARK_GRAY.toString() + TextFormatting.ITALIC + I18n.format("tooltip.appliedenergistics2.mod_view_cell.none"));
+        } else {
+            for (final String s : bl) {
+                lines.add(TextFormatting.DARK_GRAY + "  - " + TextFormatting.GRAY + I18n.format("tooltip.appliedenergistics2.mod_view_cell.entry", s));
+            }
+        }
     }
 }

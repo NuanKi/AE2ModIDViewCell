@@ -1,1 +1,6 @@
-item.ae2modidviewcell.mod_view_cell.name=ModID View Cell
+item.ae2modidviewcell.mod_view_cell.name=Mod ID View Cell
+tooltip.appliedenergistics2.mod_view_cell.hold_shift=Hold Shift for mod filter details
+tooltip.appliedenergistics2.mod_view_cell.whitelist=Whitelist
+tooltip.appliedenergistics2.mod_view_cell.blacklist=Blacklist
+tooltip.appliedenergistics2.mod_view_cell.none=(none)
+tooltip.appliedenergistics2.mod_view_cell.entry=%s

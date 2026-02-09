@@ -70,7 +70,7 @@ public class GuiModViewCell extends GuiScreen {
 
     private int boxW;
     private int boxH;
-    private int boxGap = 10;
+    private int boxGap = 12;
 
 
     private int wlX, wlY;
@@ -99,6 +99,14 @@ public class GuiModViewCell extends GuiScreen {
     private ActiveList activeList = ActiveList.WL;
     private ActiveList lastAddedList = ActiveList.WL;
     private String lastAddedValue = null;
+
+    // Move buttons
+    private GuiButton moveWlToBlBtn;
+    private GuiButton moveBlToWlBtn;
+
+    private static final int BTN_MOVE_WL_TO_BL = 6;
+    private static final int BTN_MOVE_BL_TO_WL = 7;
+
 
     public GuiModViewCell(ItemStack stack, EnumHand hand) {
         this.stack = stack.copy();
@@ -145,6 +153,34 @@ public class GuiModViewCell extends GuiScreen {
         blY = wlY;
 
         this.buttonList.clear();
+
+        // Move buttons between the list boxes (stacked)
+        int moveBtnW = 10;
+        int moveBtnH = 12;
+
+        // center inside the gap (will overlap a tiny bit if boxGap < moveBtnW, which is usually fine)
+        int moveX = wlX + boxW + (boxGap - moveBtnW) / 2;
+
+        // vertically centered in the listbox area
+        int centerY = wlY + boxH / 2;
+        int moveTopY = centerY - moveBtnH - 2;
+        int moveBottomY = centerY + 2;
+
+        this.moveWlToBlBtn = new GuiTexturedButton(
+                BTN_MOVE_WL_TO_BL, moveX, moveTopY, moveBtnW, moveBtnH, "",
+                BG, TEX_W, TEX_H,
+                0, 11, 497, 497
+        );
+
+        this.moveBlToWlBtn = new GuiTexturedButton(
+                BTN_MOVE_BL_TO_WL, moveX, moveBottomY, moveBtnW, moveBtnH, "",
+                BG, TEX_W, TEX_H,
+                22, 33, 497, 497
+        );
+
+
+        this.buttonList.add(this.moveWlToBlBtn);
+        this.buttonList.add(this.moveBlToWlBtn);
 
         // Add to Whitelist / Blacklist buttons row
         int addBtnY = guiTop + 50;
@@ -199,6 +235,8 @@ public class GuiModViewCell extends GuiScreen {
         if (this.entryField != null) {
             this.entryField.updateCursorCounter();
         }
+        if (moveWlToBlBtn != null) moveWlToBlBtn.enabled = (wlSelected != -1);
+        if (moveBlToWlBtn != null) moveBlToWlBtn.enabled = (blSelected != -1);
     }
 
     @Override
@@ -241,6 +279,17 @@ public class GuiModViewCell extends GuiScreen {
                 lastAddedValue = null;
                 lastAddedList = ActiveList.WL;
                 break;
+
+            case BTN_MOVE_WL_TO_BL:
+                moveSelectedBetweenLists(ActiveList.WL, ActiveList.BL);
+                clampScrolls();
+                break;
+
+            case BTN_MOVE_BL_TO_WL:
+                moveSelectedBetweenLists(ActiveList.BL, ActiveList.WL);
+                clampScrolls();
+                break;
+
 
             default:
                 break;
@@ -739,4 +788,41 @@ public class GuiModViewCell extends GuiScreen {
         int thumbCol = active ? COL_SCROLL_THUMB_ACTIVE : COL_SCROLL_THUMB;
         drawRect(barX1, thumbY, barX2, thumbY + thumbH, thumbCol);
     }
+
+    private void moveSelectedBetweenLists(ActiveList from, ActiveList to) {
+        List<String> src = (from == ActiveList.WL) ? whitelist : blacklist;
+        List<String> dst = (to == ActiveList.WL) ? whitelist : blacklist;
+
+        int sel = (from == ActiveList.WL) ? wlSelected : blSelected;
+        if (sel < 0 || sel >= src.size()) return;
+
+        String moved = src.remove(sel);
+        moved = normalizeModId(moved);
+        if (moved.isEmpty()) return;
+
+        // add to destination if missing (keep existing order if already present)
+        int dstIndex = dst.indexOf(moved);
+        if (dstIndex == -1) {
+            dst.add(moved);
+            dstIndex = dst.size() - 1;
+        }
+
+        // update selection & active list
+        activeList = to;
+
+        if (to == ActiveList.WL) {
+            wlSelected = dstIndex;
+            blSelected = -1;
+            wlScroll = scrollToMakeVisible(wlScroll, wlSelected, whitelist.size());
+        } else {
+            blSelected = dstIndex;
+            wlSelected = -1;
+            blScroll = scrollToMakeVisible(blScroll, blSelected, blacklist.size());
+        }
+
+        // keep "last added" coherent with your delete behavior
+        lastAddedValue = moved;
+        lastAddedList = to;
+    }
+
 }
