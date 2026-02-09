@@ -1,1 +1,6 @@
 item.ae2modidviewcell.mod_view_cell.name=模组ID显示元件
+tooltip.appliedenergistics2.mod_view_cell.hold_shift=按住 Shift 查看模组过滤明细
+tooltip.appliedenergistics2.mod_view_cell.whitelist=白名单
+tooltip.appliedenergistics2.mod_view_cell.blacklist=黑名单
+tooltip.appliedenergistics2.mod_view_cell.none=（无）
+tooltip.appliedenergistics2.mod_view_cell.entry=%s
