@@ -145,7 +145,7 @@ public class ModItemViewCell extends ItemViewCell {
         final List<String> wl = getTagWhitelist(stack);
         final List<String> bl = getTagBlacklist(stack);
 
-        lines.add(""); // spacer line
+        lines.add("");
 
         lines.add(TextFormatting.GREEN + I18n.format("tooltip.appliedenergistics2.mod_view_cell.whitelist"));
         if (wl.isEmpty()) {
