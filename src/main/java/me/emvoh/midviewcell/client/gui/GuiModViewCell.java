@@ -13,11 +13,14 @@ import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.fml.common.ModContainer;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 
@@ -107,6 +110,15 @@ public class GuiModViewCell extends GuiScreen {
     private static final int BTN_MOVE_WL_TO_BL = 6;
     private static final int BTN_MOVE_BL_TO_WL = 7;
 
+    // Tab completion
+    private final List<String> allModIds = new ArrayList<>();
+    private List<String> tabMatches = new ArrayList<>();
+    private int tabMatchIndex = 0;
+
+    private String tabSessionPrefix = null;
+    private int tabSessionStart = -1;
+    private int tabSessionEnd = -1;
+
 
     public GuiModViewCell(ItemStack stack, EnumHand hand) {
         this.stack = stack.copy();
@@ -145,6 +157,7 @@ public class GuiModViewCell extends GuiScreen {
         this.entryField.setFocused(false);
         this.entryField.setEnableBackgroundDrawing(false);
         this.boxW = (guiWidth - margin * 2 - boxGap) / 2;
+        buildModIdIndex();
 
         wlX = guiLeft + margin;
         wlY = guiTop + 92;
@@ -304,11 +317,17 @@ public class GuiModViewCell extends GuiScreen {
             return;
         }
 
-        // TAB toggles focus on the entry field
+        // TAB behavior:
+        // - If entry not focused: focus it
+        // - If entry focused: tab-complete current token (Shift+Tab cycles backwards)
         if (keyCode == Keyboard.KEY_TAB) {
-            boolean newFocus = !this.entryField.isFocused();
-            this.entryField.setFocused(newFocus);
-            if (newFocus) this.entryField.setCursorPositionEnd();
+            if (this.entryField != null && this.entryField.isFocused()) {
+                boolean backwards = isShiftKeyDown();
+                doTabComplete(backwards);
+            } else if (this.entryField != null) {
+                this.entryField.setFocused(true);
+                this.entryField.setCursorPositionEnd();
+            }
             return;
         }
 
@@ -360,6 +379,11 @@ public class GuiModViewCell extends GuiScreen {
         }
 
         if (this.entryField != null && this.entryField.textboxKeyTyped(typedChar, keyCode)) {
+            return;
+        }
+
+        if (this.entryField != null && this.entryField.textboxKeyTyped(typedChar, keyCode)) {
+            clearTabSession();
             return;
         }
 
@@ -800,14 +824,12 @@ public class GuiModViewCell extends GuiScreen {
         moved = normalizeModId(moved);
         if (moved.isEmpty()) return;
 
-        // add to destination if missing (keep existing order if already present)
         int dstIndex = dst.indexOf(moved);
         if (dstIndex == -1) {
             dst.add(moved);
             dstIndex = dst.size() - 1;
         }
 
-        // update selection & active list
         activeList = to;
 
         if (to == ActiveList.WL) {
@@ -820,9 +842,136 @@ public class GuiModViewCell extends GuiScreen {
             blScroll = scrollToMakeVisible(blScroll, blSelected, blacklist.size());
         }
 
-        // keep "last added" coherent with your delete behavior
         lastAddedValue = moved;
         lastAddedList = to;
     }
 
+    private void buildModIdIndex() {
+        this.allModIds.clear();
+
+        for (ModContainer c : Loader.instance().getActiveModList()) {
+            String id = c.getModId();
+            if (id != null && !id.trim().isEmpty()) {
+                this.allModIds.add(id.trim().toLowerCase());
+            }
+        }
+
+        if (!this.allModIds.contains("minecraft")) this.allModIds.add("minecraft");
+        if (!this.allModIds.contains("forge")) this.allModIds.add("forge");
+
+        Collections.sort(this.allModIds);
+    }
+
+    private void clearTabSession() {
+        tabMatches = new ArrayList<>();
+        tabMatchIndex = 0;
+        tabSessionPrefix = null;
+        tabSessionStart = -1;
+        tabSessionEnd = -1;
+    }
+
+    private static boolean isSep(char c) {
+        return c == ',' || c == ';' || Character.isWhitespace(c);
+    }
+
+    private static String commonPrefix(List<String> items) {
+        if (items == null || items.isEmpty()) return "";
+        String p = items.get(0);
+        for (int i = 1; i < items.size(); i++) {
+            String s = items.get(i);
+            int n = Math.min(p.length(), s.length());
+            int j = 0;
+            while (j < n && p.charAt(j) == s.charAt(j)) j++;
+            p = p.substring(0, j);
+            if (p.isEmpty()) break;
+        }
+        return p;
+    }
+
+    private void doTabComplete(boolean backwards) {
+        if (entryField == null) return;
+
+        String text = entryField.getText();
+        if (text == null) text = "";
+
+        int caret = entryField.getCursorPosition();
+        caret = Math.max(0, Math.min(caret, text.length()));
+
+        int start = caret;
+        while (start > 0 && !isSep(text.charAt(start - 1))) start--;
+
+        int end = caret;
+        while (end < text.length() && !isSep(text.charAt(end))) end++;
+
+        if (start >= end) return;
+
+        String token = text.substring(start, end);
+        boolean hadAt = token.startsWith("@");
+        String tokenCore = hadAt ? token.substring(1) : token;
+
+        String current = tokenCore.trim().toLowerCase();
+        if (current.isEmpty()) return;
+
+        boolean sameSession =
+                tabSessionPrefix != null &&
+                        tabSessionStart == start &&
+                        tabMatches != null &&
+                        !tabMatches.isEmpty() &&
+                        current.startsWith(tabSessionPrefix);
+
+        if (!sameSession) {
+            ArrayList<String> matches = new ArrayList<>();
+            for (String id : allModIds) {
+                if (id.startsWith(current)) matches.add(id);
+            }
+
+            if (matches.isEmpty()) {
+                clearTabSession();
+                return;
+            }
+
+            tabMatches = matches;
+            tabMatchIndex = -1;
+            tabSessionPrefix = current;
+            tabSessionStart = start;
+            tabSessionEnd = end;
+
+            String cp = commonPrefix(tabMatches);
+            String chosen = (cp.length() > current.length()) ? cp : tabMatches.get(0);
+
+            int exactIdx = tabMatches.indexOf(chosen);
+            if (exactIdx >= 0) tabMatchIndex = exactIdx;
+
+            applyTokenReplacement(text, start, end, hadAt, chosen);
+            return;
+        }
+
+        int curIdx = tabMatches.indexOf(current);
+        if (curIdx >= 0) tabMatchIndex = curIdx;
+
+        if (backwards) {
+            tabMatchIndex--;
+            if (tabMatchIndex < 0) tabMatchIndex = tabMatches.size() - 1;
+        } else {
+            tabMatchIndex++;
+            if (tabMatchIndex >= tabMatches.size()) tabMatchIndex = 0;
+        }
+
+        String chosen = tabMatches.get(tabMatchIndex);
+        applyTokenReplacement(text, tabSessionStart, tabSessionEnd, hadAt, chosen);
+    }
+
+    private void applyTokenReplacement(String fullText, int start, int end, boolean hadAt, String replacementCore) {
+        String replacement = hadAt ? ("@" + replacementCore) : replacementCore;
+
+        String newText = fullText.substring(0, start) + replacement + fullText.substring(end);
+
+        entryField.setText(newText);
+        int newCaret = start + replacement.length();
+        entryField.setCursorPosition(newCaret);
+        entryField.setSelectionPos(newCaret);
+
+        tabSessionStart = start;
+        tabSessionEnd = start + replacement.length();
+    }
 }
