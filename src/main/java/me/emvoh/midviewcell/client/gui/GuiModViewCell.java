@@ -25,14 +25,27 @@ import java.util.LinkedHashSet;
 import java.util.List;
 
 public class GuiModViewCell extends GuiScreen {
+
+    /* =========================
+       Core
+       ========================= */
+
     private final EnumHand hand;
+    private final ItemStack stack;
+
+    /* =========================
+       Texture
+       ========================= */
 
     private static final ResourceLocation BG = new ResourceLocation(Tags.MODID, "textures/guis/mod_view_cell.png");
 
     private static final int TEX_W = 512;
     private static final int TEX_H = 512;
 
-    // Atlas regions
+    /* =========================
+       Atlas regions
+       ========================= */
+
     private static final int U_ENTRY = 0;
     private static final int V_ENTRY_IDLE = 275;
     private static final int V_ENTRY_FOCUSED = 289;
@@ -40,7 +53,10 @@ public class GuiModViewCell extends GuiScreen {
     private static final int U_LISTBOX = 0;
     private static final int V_LISTBOX = 305;
 
-    // Pixel sizes
+    /* =========================
+       Entry field
+       ========================= */
+
     private static final int ENTRY_W = 232;
     private static final int ENTRY_H = 14;
     private int entryBoxX;
@@ -49,32 +65,37 @@ public class GuiModViewCell extends GuiScreen {
     private static final int ENTRY_PAD_X = 4;
     private static final int ENTRY_PAD_Y = 3;
 
-
     private static final int MAX_ENTRY_LEN = 256;
 
-    private final ItemStack stack;
-
     private GuiTextField entryField;
+
+    /* =========================
+       Data model
+       ========================= */
 
     private final List<String> whitelist = new ArrayList<>();
     private final List<String> blacklist = new ArrayList<>();
 
-    // Multi-select support
+    /* =========================
+       Multi-select support
+       ========================= */
+
     private final LinkedHashSet<Integer> wlSelected = new LinkedHashSet<>();
     private final LinkedHashSet<Integer> blSelected = new LinkedHashSet<>();
 
-    // Primary selection (used for keyboard up/down and scrolling)
     private int wlPrimary = -1;
     private int blPrimary = -1;
 
-    // Anchor for shift-range selection
     private int wlAnchor = -1;
     private int blAnchor = -1;
 
     private int wlScroll = 0;
     private int blScroll = 0;
 
-    // Layout
+    /* =========================
+       Layout
+       ========================= */
+
     private int guiLeft;
     private int guiTop;
     private int guiWidth = 256;
@@ -84,21 +105,25 @@ public class GuiModViewCell extends GuiScreen {
     private int boxH;
     private int boxGap = 12;
 
-
     private int wlX, wlY;
     private int blX, blY;
 
-    // Scrollbar
-    private static final int SCROLL_W = 4;          // thumb width
-    private static final int SCROLL_PAD_RIGHT = 2;  // padding from inner right edge
+    /* =========================
+       Scrollbar styling
+       ========================= */
+
+    private static final int SCROLL_W = 4;
+    private static final int SCROLL_PAD_RIGHT = 2;
     private static final int SCROLL_MIN_THUMB_H = 8;
 
-    private static final int COL_SCROLL_TRACK = 0x40000000; // semi-transparent black
-    private static final int COL_SCROLL_THUMB = 0x80FFFFFF; // semi-transparent white
+    private static final int COL_SCROLL_TRACK = 0x40000000;
+    private static final int COL_SCROLL_THUMB = 0x80FFFFFF;
     private static final int COL_SCROLL_THUMB_ACTIVE = 0xB0FFFFFF;
 
+    /* =========================
+       Text colors
+       ========================= */
 
-    // Text colors
     private static final int COL_TITLE         = 0x505050;
     private static final int COL_LABEL         = 0x505050;
     private static final int COL_PLACEHOLDER   = 0xCFCFCF;
@@ -107,19 +132,29 @@ public class GuiModViewCell extends GuiScreen {
     private static final int COL_LIST_TEXT_SEL = 0xFFFFFF;
     private static final int COL_LIST_SEL_BG   = 0x7C81C6FF;
 
+    /* =========================
+       State
+       ========================= */
+
     private enum ActiveList { WL, BL }
     private ActiveList activeList = ActiveList.WL;
     private ActiveList lastAddedList = ActiveList.WL;
     private String lastAddedValue = null;
 
-    // Move buttons
+    /* =========================
+       Buttons
+       ========================= */
+
     private GuiButton moveWlToBlBtn;
     private GuiButton moveBlToWlBtn;
 
     private static final int BTN_MOVE_WL_TO_BL = 6;
     private static final int BTN_MOVE_BL_TO_WL = 7;
 
-    // Tab completion
+    /* =========================
+       Tab completion
+       ========================= */
+
     private final List<String> allModIds = new ArrayList<>();
     private List<String> tabMatches = new ArrayList<>();
     private int tabMatchIndex = 0;
@@ -128,6 +163,9 @@ public class GuiModViewCell extends GuiScreen {
     private int tabSessionStart = -1;
     private int tabSessionEnd = -1;
 
+    /* =========================
+       Construction
+       ========================= */
 
     public GuiModViewCell(ItemStack stack, EnumHand hand) {
         this.stack = stack.copy();
@@ -137,6 +175,9 @@ public class GuiModViewCell extends GuiScreen {
         this.blacklist.addAll(ModItemViewCell.getTagBlacklist(this.stack));
     }
 
+    /* =========================
+       Gui lifecycle
+       ========================= */
 
     @Override
     public void initGui() {
@@ -147,8 +188,7 @@ public class GuiModViewCell extends GuiScreen {
 
         int lineH = this.fontRenderer.FONT_HEIGHT + 2;
         int visibleRows = 10;
-        this.boxH = visibleRows * lineH + 4; // +4 for the 2px top/bottom padding you use
-
+        this.boxH = visibleRows * lineH + 4;
 
         final int margin = 12;
 
@@ -176,14 +216,11 @@ public class GuiModViewCell extends GuiScreen {
 
         this.buttonList.clear();
 
-        // Move buttons between the list boxes (stacked)
         int moveBtnW = 10;
         int moveBtnH = 12;
 
-        // center inside the gap (will overlap a tiny bit if boxGap < moveBtnW, which is usually fine)
         int moveX = wlX + boxW + (boxGap - moveBtnW) / 2;
 
-        // vertically centered in the listbox area
         int centerY = wlY + boxH / 2;
         int moveTopY = centerY - moveBtnH - 2;
         int moveBottomY = centerY + 2;
@@ -200,11 +237,9 @@ public class GuiModViewCell extends GuiScreen {
                 22, 33, 497, 497
         );
 
-
         this.buttonList.add(this.moveWlToBlBtn);
         this.buttonList.add(this.moveBlToWlBtn);
 
-        // Add to Whitelist / Blacklist buttons row
         int addBtnY = guiTop + 50;
         this.buttonList.add(new GuiTexturedButton(
                 2, wlX, addBtnY, 111, 18, "Add to Whitelist",
@@ -215,7 +250,6 @@ public class GuiModViewCell extends GuiScreen {
                 BG, TEX_W, TEX_H, 0, 420, 439
         ));
 
-        // Remove / Clear buttons row
         int toolsY = wlY + boxH + 10;
 
         this.buttonList.add(new GuiTexturedButton(
@@ -227,7 +261,6 @@ public class GuiModViewCell extends GuiScreen {
                 BG, TEX_W, TEX_H, 0, 420, 439
         ));
 
-        // Save / Cancel buttons row
         int bottomBtnH = 18;
         int bottomY = guiTop + guiHeight - margin - bottomBtnH;
 
@@ -242,9 +275,7 @@ public class GuiModViewCell extends GuiScreen {
                 BG, TEX_W, TEX_H, 0, 458, 477
         ));
         clampScrolls();
-
     }
-
 
     @Override
     public void onGuiClosed() {
@@ -263,37 +294,39 @@ public class GuiModViewCell extends GuiScreen {
         if (moveBlToWlBtn != null) moveBlToWlBtn.enabled = !blSelected.isEmpty();
     }
 
+    /* =========================
+       Button handling
+       ========================= */
+
     @Override
     protected void actionPerformed(GuiButton button) throws IOException {
         switch (button.id) {
-            case 0: // Save
+            case 0:
                 saveAndClose();
                 break;
 
-
-            case 1: // Cancel
+            case 1:
                 this.mc.displayGuiScreen(null);
                 break;
 
-            case 2: // Add -> WL
+            case 2:
                 activeList = ActiveList.WL;
                 addEntryTextToList(whitelist);
                 clampScrolls();
                 break;
 
-            case 3: // Add -> BL
+            case 3:
                 activeList = ActiveList.BL;
                 addEntryTextToList(blacklist);
                 clampScrolls();
                 break;
 
-
-            case 4: // Remove selected
+            case 4:
                 removeSelected();
                 clampScrolls();
                 break;
 
-            case 5: // Clear all
+            case 5:
                 whitelist.clear();
                 blacklist.clear();
 
@@ -321,23 +354,22 @@ public class GuiModViewCell extends GuiScreen {
                 clampScrolls();
                 break;
 
-
             default:
                 break;
         }
     }
 
+    /* =========================
+       Keyboard handling
+       ========================= */
+
     @Override
     protected void keyTyped(char typedChar, int keyCode) throws IOException {
-        // CTRL+S saves
         if (isCtrlKeyDown() && keyCode == Keyboard.KEY_S) {
             saveAndClose();
             return;
         }
 
-        // TAB behavior:
-        // - If entry not focused: focus it
-        // - If entry focused: tab-complete current token (Shift+Tab cycles backwards)
         if (keyCode == Keyboard.KEY_TAB) {
             if (this.entryField != null && this.entryField.isFocused()) {
                 boolean backwards = isShiftKeyDown();
@@ -371,10 +403,6 @@ public class GuiModViewCell extends GuiScreen {
             }
         }
 
-        // Enter behavior:
-        // - If entry focused and has text: add to active list
-        // - If entry focused and empty: save
-        // - If entry not focused: save
         if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
             if (entryFocused) {
                 String raw = this.entryField.getText();
@@ -407,8 +435,9 @@ public class GuiModViewCell extends GuiScreen {
         super.keyTyped(typedChar, keyCode);
     }
 
-
-
+    /* =========================
+       Mouse handling
+       ========================= */
 
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
@@ -467,6 +496,10 @@ public class GuiModViewCell extends GuiScreen {
         }
     }
 
+    /* =========================
+       Rendering
+       ========================= */
+
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         this.drawDefaultBackground();
@@ -481,7 +514,6 @@ public class GuiModViewCell extends GuiScreen {
                 TEX_W, TEX_H
         );
 
-        // Title
         String title = "Mod View Cell Filters";
         int x = guiLeft + guiWidth / 2;
         int y = guiTop + 8;
@@ -490,14 +522,12 @@ public class GuiModViewCell extends GuiScreen {
                 x - this.fontRenderer.getStringWidth(title) / 2,
                 y,
                 COL_TITLE,
-                false // no shadow
+                false
         );
 
-        // Labels
         this.fontRenderer.drawString("Whitelist", wlX, wlY - 12, COL_LABEL);
         this.fontRenderer.drawString("Blacklist", blX, blY - 12, COL_LABEL);
 
-        // Entry field
         if (this.entryField != null) {
             GlStateManager.color(1f, 1f, 1f, 1f);
             this.mc.getTextureManager().bindTexture(BG);
@@ -511,13 +541,10 @@ public class GuiModViewCell extends GuiScreen {
                     TEX_W, TEX_H
             );
 
-
             this.entryField.drawTextBox();
             drawEntryPlaceholder();
         }
 
-
-        // List boxes
         drawStringListBox(wlX, wlY, boxW, boxH, whitelist, wlSelected, wlPrimary, wlScroll);
         drawStringListBox(blX, blY, boxW, boxH, blacklist, blSelected, blPrimary, blScroll);
         super.drawScreen(mouseX, mouseY, partialTicks);
@@ -585,7 +612,7 @@ public class GuiModViewCell extends GuiScreen {
     }
 
     private int applyScroll(int scroll, int wheelDelta, List<String> list, int visibleRows) {
-        int dir = wheelDelta > 0 ? -1 : 1; // wheel up means scroll up
+        int dir = wheelDelta > 0 ? -1 : 1;
         int maxScroll = Math.max(0, list.size() - visibleRows);
         int next = scroll + dir;
         if (next < 0) next = 0;
@@ -613,7 +640,6 @@ public class GuiModViewCell extends GuiScreen {
         raw = raw.trim();
         if (raw.isEmpty()) return;
 
-        // Split on commas, semicolons, and whitespace
         String[] parts = raw.split("[,;\\s]+");
 
         LinkedHashSet<String> merged = new LinkedHashSet<>(target);
@@ -660,7 +686,6 @@ public class GuiModViewCell extends GuiScreen {
         wlScroll = Math.max(0, Math.min(wlScroll, Math.max(0, whitelist.size() - visible)));
         blScroll = Math.max(0, Math.min(blScroll, Math.max(0, blacklist.size() - visible)));
 
-        // drop out-of-range selected indices
         clampSelectionSet(wlSelected, whitelist.size());
         clampSelectionSet(blSelected, blacklist.size());
 
@@ -698,7 +723,6 @@ public class GuiModViewCell extends GuiScreen {
         MidviewNetwork.NET.sendToServer(new ModIDViewCellPacket(hand, whitelist, blacklist));
     }
 
-
     public static void open(ItemStack stack, EnumHand hand) {
         Minecraft.getMinecraft().displayGuiScreen(new GuiModViewCell(stack, hand));
     }
@@ -707,7 +731,6 @@ public class GuiModViewCell extends GuiScreen {
         if (this.entryField == null) return;
 
         if (!this.entryField.getText().isEmpty()) return;
-
 
         if (this.entryField.isFocused()) return;
 
@@ -837,7 +860,7 @@ public class GuiModViewCell extends GuiScreen {
         if (listSize <= 0) return;
 
         int maxScroll = Math.max(0, listSize - visibleRows);
-        if (maxScroll <= 0) return; // no scrollbar needed
+        if (maxScroll <= 0) return;
 
         int innerY = y + 2;
         int innerH = h - 4;
@@ -851,10 +874,8 @@ public class GuiModViewCell extends GuiScreen {
         int barX2 = x + w - 2 - SCROLL_PAD_RIGHT;
         int barX1 = barX2 - SCROLL_W;
 
-        // track
         drawRect(barX1, innerY, barX2, innerY + innerH, COL_SCROLL_TRACK);
 
-        // thumb
         int thumbCol = active ? COL_SCROLL_THUMB_ACTIVE : COL_SCROLL_THUMB;
         drawRect(barX1, thumbY, barX2, thumbY + thumbH, thumbCol);
     }
@@ -871,7 +892,6 @@ public class GuiModViewCell extends GuiScreen {
         ArrayList<Integer> idxsAsc = new ArrayList<>(srcSel);
         Collections.sort(idxsAsc);
 
-        // Collect normalized values in visible order, de-dup
         LinkedHashSet<String> movedIds = new LinkedHashSet<>();
         for (int idx : idxsAsc) {
             if (idx < 0 || idx >= src.size()) continue;
@@ -879,7 +899,6 @@ public class GuiModViewCell extends GuiScreen {
             if (!v.isEmpty()) movedIds.add(v);
         }
 
-        // Remove from source, descending
         ArrayList<Integer> idxsDesc = new ArrayList<>(srcSel);
         Collections.sort(idxsDesc, Collections.reverseOrder());
         for (int idx : idxsDesc) {
@@ -888,7 +907,6 @@ public class GuiModViewCell extends GuiScreen {
             }
         }
 
-        // Clear source selection state
         srcSel.clear();
         if (from == ActiveList.WL) {
             wlPrimary = -1;
@@ -898,7 +916,6 @@ public class GuiModViewCell extends GuiScreen {
             blAnchor = -1;
         }
 
-        // Add to destination if missing, keep order
         ArrayList<Integer> newDstIdxs = new ArrayList<>();
         String lastMoved = null;
 
@@ -912,13 +929,11 @@ public class GuiModViewCell extends GuiScreen {
             lastMoved = id;
         }
 
-        // Select all moved entries in destination
         dstSel.clear();
         for (int di : newDstIdxs) dstSel.add(di);
 
         activeList = to;
 
-        // Set primary selection to the last moved entry for scrolling
         if (!newDstIdxs.isEmpty()) {
             int primary = newDstIdxs.get(newDstIdxs.size() - 1);
             if (to == ActiveList.WL) {
@@ -1121,7 +1136,6 @@ public class GuiModViewCell extends GuiScreen {
             return;
         }
 
-        // normal click, single select
         sel.clear();
         sel.add(idx);
 
@@ -1140,7 +1154,7 @@ public class GuiModViewCell extends GuiScreen {
         if (selectedSet.isEmpty()) return;
 
         ArrayList<Integer> idxs = new ArrayList<>(selectedSet);
-        Collections.sort(idxs, Collections.reverseOrder()); // remove from end to start
+        Collections.sort(idxs, Collections.reverseOrder());
 
         for (int idx : idxs) {
             if (idx >= 0 && idx < list.size()) {
