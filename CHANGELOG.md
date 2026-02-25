@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Chinese (Simplified) translation (community contribution by @ZHAY10086, PR #1).
+- Tooltip support: holding **Shift** while hovering over a Mod ID View Cell shows the Whitelist and Blacklist mod IDs.
 
 ## [1.1.0]
 
