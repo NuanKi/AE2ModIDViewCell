@@ -2,6 +2,7 @@
 [![MCVersion](http://cf.way2muchnoise.eu/versions/1456030.svg)](https://www.curseforge.com/minecraft/mc-mods/ae2-mod-id-view-cell)
 [![GitHub issues](https://img.shields.io/github/issues/NuanKi/AE2ModIDViewCell.svg)](https://github.com/NuanKi/AE2ModIDViewCell/issues)
 [![GitHub pull requests](https://img.shields.io/github/issues-pr/NuanKi/AE2ModIDViewCell.svg)](https://github.com/NuanKi/AE2ModIDViewCell/pulls)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 # AE2 Mod ID View Cell
 
@@ -68,4 +69,4 @@ Typical workflow:
 Issues and pull requests are welcome. If you submit a PR, keep changes focused and include a short description of what changed and why.
 
 ## License
-MIT (see `LICENSE`).
+MIT (see [`LICENSE`](LICENSE)).
