@@ -59,8 +59,17 @@ public class GuiModViewCell extends GuiScreen {
     private final List<String> whitelist = new ArrayList<>();
     private final List<String> blacklist = new ArrayList<>();
 
-    private int wlSelected = -1;
-    private int blSelected = -1;
+    // Multi-select support
+    private final LinkedHashSet<Integer> wlSelected = new LinkedHashSet<>();
+    private final LinkedHashSet<Integer> blSelected = new LinkedHashSet<>();
+
+    // Primary selection (used for keyboard up/down and scrolling)
+    private int wlPrimary = -1;
+    private int blPrimary = -1;
+
+    // Anchor for shift-range selection
+    private int wlAnchor = -1;
+    private int blAnchor = -1;
 
     private int wlScroll = 0;
     private int blScroll = 0;
@@ -245,11 +254,13 @@ public class GuiModViewCell extends GuiScreen {
     @Override
     public void updateScreen() {
         super.updateScreen();
+
         if (this.entryField != null) {
             this.entryField.updateCursorCounter();
         }
-        if (moveWlToBlBtn != null) moveWlToBlBtn.enabled = (wlSelected != -1);
-        if (moveBlToWlBtn != null) moveBlToWlBtn.enabled = (blSelected != -1);
+
+        if (moveWlToBlBtn != null) moveWlToBlBtn.enabled = !wlSelected.isEmpty();
+        if (moveBlToWlBtn != null) moveBlToWlBtn.enabled = !blSelected.isEmpty();
     }
 
     @Override
@@ -285,10 +296,17 @@ public class GuiModViewCell extends GuiScreen {
             case 5: // Clear all
                 whitelist.clear();
                 blacklist.clear();
-                wlSelected = -1;
-                blSelected = -1;
+
+                wlSelected.clear();
+                blSelected.clear();
+                wlPrimary = -1;
+                blPrimary = -1;
+                wlAnchor = -1;
+                blAnchor = -1;
+
                 wlScroll = 0;
                 blScroll = 0;
+
                 lastAddedValue = null;
                 lastAddedList = ActiveList.WL;
                 break;
@@ -333,7 +351,6 @@ public class GuiModViewCell extends GuiScreen {
 
         boolean entryFocused = (this.entryField != null && this.entryField.isFocused());
 
-        // List editing shortcuts only when entry is not focused
         if (!entryFocused) {
             if (keyCode == Keyboard.KEY_DELETE) {
                 removeSelectedOrLastAdded();
@@ -401,20 +418,30 @@ public class GuiModViewCell extends GuiScreen {
             this.entryField.mouseClicked(mouseX, mouseY, mouseButton);
         }
 
-        // Handle selecting entries in list boxes
+        boolean ctrl = isCtrlKeyDown();
+        boolean shift = isShiftKeyDown();
+
         int wlIdx = clickSelectIndex(mouseX, mouseY, wlX, wlY, boxW, boxH, whitelist, wlScroll);
         if (wlIdx != -1) {
             activeList = ActiveList.WL;
-            wlSelected = wlIdx;
-            blSelected = -1;
+
+            blSelected.clear();
+            blPrimary = -1;
+            blAnchor = -1;
+
+            applyMultiSelectClick(ActiveList.WL, wlIdx, ctrl, shift);
             return;
         }
 
         int blIdx = clickSelectIndex(mouseX, mouseY, blX, blY, boxW, boxH, blacklist, blScroll);
         if (blIdx != -1) {
             activeList = ActiveList.BL;
-            blSelected = blIdx;
-            wlSelected = -1;
+
+            wlSelected.clear();
+            wlPrimary = -1;
+            wlAnchor = -1;
+
+            applyMultiSelectClick(ActiveList.BL, blIdx, ctrl, shift);
         }
     }
 
@@ -491,8 +518,8 @@ public class GuiModViewCell extends GuiScreen {
 
 
         // List boxes
-        drawStringListBox(wlX, wlY, boxW, boxH, whitelist, wlSelected, wlScroll);
-        drawStringListBox(blX, blY, boxW, boxH, blacklist, blSelected, blScroll);
+        drawStringListBox(wlX, wlY, boxW, boxH, whitelist, wlSelected, wlPrimary, wlScroll);
+        drawStringListBox(blX, blY, boxW, boxH, blacklist, blSelected, blPrimary, blScroll);
         super.drawScreen(mouseX, mouseY, partialTicks);
     }
 
@@ -500,7 +527,7 @@ public class GuiModViewCell extends GuiScreen {
        List box helpers
        ========================= */
 
-    private void drawStringListBox(int x, int y, int w, int h, List<String> list, int selected, int scroll) {
+    private void drawStringListBox(int x, int y, int w, int h, List<String> list, LinkedHashSet<Integer> selectedSet, int primary, int scroll) {
         GlStateManager.color(1f, 1f, 1f, 1f);
         this.mc.getTextureManager().bindTexture(BG);
 
@@ -525,11 +552,12 @@ public class GuiModViewCell extends GuiScreen {
 
             int yy = y + 2 + i * lineH;
 
-            if (idx == selected) {
+            boolean selected = selectedSet.contains(idx);
+            if (selected) {
                 drawRect(x + 2, yy - 1, x + w - 2, yy + lineH - 1, COL_LIST_SEL_BG);
             }
 
-            int textColor = (idx == selected) ? COL_LIST_TEXT_SEL : COL_LIST_TEXT;
+            int textColor = selected ? COL_LIST_TEXT_SEL : COL_LIST_TEXT;
             this.fontRenderer.drawString(trimToWidth(list.get(idx), textMaxWidth), x + 4, yy, textColor);
         }
 
@@ -611,21 +639,17 @@ public class GuiModViewCell extends GuiScreen {
     }
 
     private void removeSelected() {
-        if (wlSelected != -1) {
-            if (wlSelected >= 0 && wlSelected < whitelist.size()) {
-                String removed = whitelist.remove(wlSelected);
-                onRemoved(ActiveList.WL, removed);
-            }
-            wlSelected = -1;
+        if (!wlSelected.isEmpty()) {
+            removeIndicesFromList(ActiveList.WL, whitelist, wlSelected);
+            wlPrimary = -1;
+            wlAnchor = -1;
             return;
         }
 
-        if (blSelected != -1) {
-            if (blSelected >= 0 && blSelected < blacklist.size()) {
-                String removed = blacklist.remove(blSelected);
-                onRemoved(ActiveList.BL, removed);
-            }
-            blSelected = -1;
+        if (!blSelected.isEmpty()) {
+            removeIndicesFromList(ActiveList.BL, blacklist, blSelected);
+            blPrimary = -1;
+            blAnchor = -1;
         }
     }
 
@@ -636,8 +660,15 @@ public class GuiModViewCell extends GuiScreen {
         wlScroll = Math.max(0, Math.min(wlScroll, Math.max(0, whitelist.size() - visible)));
         blScroll = Math.max(0, Math.min(blScroll, Math.max(0, blacklist.size() - visible)));
 
-        if (wlSelected >= whitelist.size()) wlSelected = -1;
-        if (blSelected >= blacklist.size()) blSelected = -1;
+        // drop out-of-range selected indices
+        clampSelectionSet(wlSelected, whitelist.size());
+        clampSelectionSet(blSelected, blacklist.size());
+
+        if (!wlSelected.contains(wlPrimary)) wlPrimary = -1;
+        if (!blSelected.contains(blPrimary)) blPrimary = -1;
+
+        if (wlAnchor >= whitelist.size()) wlAnchor = -1;
+        if (blAnchor >= blacklist.size()) blAnchor = -1;
     }
 
     private void normalizeInPlace(List<String> list) {
@@ -715,46 +746,62 @@ public class GuiModViewCell extends GuiScreen {
     private void moveSelection(int delta) {
         List<String> list = (activeList == ActiveList.WL) ? whitelist : blacklist;
         if (list.isEmpty()) {
-            wlSelected = -1;
-            blSelected = -1;
+            wlSelected.clear();
+            blSelected.clear();
+            wlPrimary = -1;
+            blPrimary = -1;
+            wlAnchor = -1;
+            blAnchor = -1;
             return;
         }
 
-        int selected = (activeList == ActiveList.WL) ? wlSelected : blSelected;
-
-        if (selected < 0) {
-            selected = (delta > 0) ? 0 : (list.size() - 1);
-        } else {
-            selected = Math.max(0, Math.min(list.size() - 1, selected + delta));
-        }
-
         if (activeList == ActiveList.WL) {
-            wlSelected = selected;
-            blSelected = -1;
-            wlScroll = scrollToMakeVisible(wlScroll, wlSelected, whitelist.size());
+            int selected = wlPrimary;
+
+            if (selected < 0) selected = (delta > 0) ? 0 : (list.size() - 1);
+            else selected = Math.max(0, Math.min(list.size() - 1, selected + delta));
+
+            wlSelected.clear();
+            wlSelected.add(selected);
+            wlPrimary = selected;
+            wlAnchor = selected;
+
+            blSelected.clear();
+            blPrimary = -1;
+            blAnchor = -1;
+
+            wlScroll = scrollToMakeVisible(wlScroll, wlPrimary, whitelist.size());
         } else {
-            blSelected = selected;
-            wlSelected = -1;
-            blScroll = scrollToMakeVisible(blScroll, blSelected, blacklist.size());
+            int selected = blPrimary;
+
+            if (selected < 0) selected = (delta > 0) ? 0 : (list.size() - 1);
+            else selected = Math.max(0, Math.min(list.size() - 1, selected + delta));
+
+            blSelected.clear();
+            blSelected.add(selected);
+            blPrimary = selected;
+            blAnchor = selected;
+
+            wlSelected.clear();
+            wlPrimary = -1;
+            wlAnchor = -1;
+
+            blScroll = scrollToMakeVisible(blScroll, blPrimary, blacklist.size());
         }
     }
 
     private void removeSelectedOrLastAdded() {
-        if (wlSelected != -1) {
-            if (wlSelected >= 0 && wlSelected < whitelist.size()) {
-                String removed = whitelist.remove(wlSelected);
-                onRemoved(ActiveList.WL, removed);
-            }
-            wlSelected = -1;
+        if (!wlSelected.isEmpty()) {
+            removeIndicesFromList(ActiveList.WL, whitelist, wlSelected);
+            wlPrimary = -1;
+            wlAnchor = -1;
             return;
         }
 
-        if (blSelected != -1) {
-            if (blSelected >= 0 && blSelected < blacklist.size()) {
-                String removed = blacklist.remove(blSelected);
-                onRemoved(ActiveList.BL, removed);
-            }
-            blSelected = -1;
+        if (!blSelected.isEmpty()) {
+            removeIndicesFromList(ActiveList.BL, blacklist, blSelected);
+            blPrimary = -1;
+            blAnchor = -1;
             return;
         }
 
@@ -765,7 +812,6 @@ public class GuiModViewCell extends GuiScreen {
                 lastAddedValue = list.isEmpty() ? null : list.get(list.size() - 1);
                 return;
             } else {
-                // stale pointer, clear it so we do not keep trying
                 lastAddedValue = null;
             }
         }
@@ -817,33 +863,85 @@ public class GuiModViewCell extends GuiScreen {
         List<String> src = (from == ActiveList.WL) ? whitelist : blacklist;
         List<String> dst = (to == ActiveList.WL) ? whitelist : blacklist;
 
-        int sel = (from == ActiveList.WL) ? wlSelected : blSelected;
-        if (sel < 0 || sel >= src.size()) return;
+        LinkedHashSet<Integer> srcSel = (from == ActiveList.WL) ? wlSelected : blSelected;
+        LinkedHashSet<Integer> dstSel = (to == ActiveList.WL) ? wlSelected : blSelected;
 
-        String moved = src.remove(sel);
-        moved = normalizeModId(moved);
-        if (moved.isEmpty()) return;
+        if (srcSel.isEmpty()) return;
 
-        int dstIndex = dst.indexOf(moved);
-        if (dstIndex == -1) {
-            dst.add(moved);
-            dstIndex = dst.size() - 1;
+        ArrayList<Integer> idxsAsc = new ArrayList<>(srcSel);
+        Collections.sort(idxsAsc);
+
+        // Collect normalized values in visible order, de-dup
+        LinkedHashSet<String> movedIds = new LinkedHashSet<>();
+        for (int idx : idxsAsc) {
+            if (idx < 0 || idx >= src.size()) continue;
+            String v = normalizeModId(src.get(idx));
+            if (!v.isEmpty()) movedIds.add(v);
         }
+
+        // Remove from source, descending
+        ArrayList<Integer> idxsDesc = new ArrayList<>(srcSel);
+        Collections.sort(idxsDesc, Collections.reverseOrder());
+        for (int idx : idxsDesc) {
+            if (idx >= 0 && idx < src.size()) {
+                src.remove(idx);
+            }
+        }
+
+        // Clear source selection state
+        srcSel.clear();
+        if (from == ActiveList.WL) {
+            wlPrimary = -1;
+            wlAnchor = -1;
+        } else {
+            blPrimary = -1;
+            blAnchor = -1;
+        }
+
+        // Add to destination if missing, keep order
+        ArrayList<Integer> newDstIdxs = new ArrayList<>();
+        String lastMoved = null;
+
+        for (String id : movedIds) {
+            int existing = dst.indexOf(id);
+            if (existing == -1) {
+                dst.add(id);
+                existing = dst.size() - 1;
+            }
+            newDstIdxs.add(existing);
+            lastMoved = id;
+        }
+
+        // Select all moved entries in destination
+        dstSel.clear();
+        for (int di : newDstIdxs) dstSel.add(di);
 
         activeList = to;
 
-        if (to == ActiveList.WL) {
-            wlSelected = dstIndex;
-            blSelected = -1;
-            wlScroll = scrollToMakeVisible(wlScroll, wlSelected, whitelist.size());
-        } else {
-            blSelected = dstIndex;
-            wlSelected = -1;
-            blScroll = scrollToMakeVisible(blScroll, blSelected, blacklist.size());
+        // Set primary selection to the last moved entry for scrolling
+        if (!newDstIdxs.isEmpty()) {
+            int primary = newDstIdxs.get(newDstIdxs.size() - 1);
+            if (to == ActiveList.WL) {
+                wlPrimary = primary;
+                wlAnchor = primary;
+                wlScroll = scrollToMakeVisible(wlScroll, wlPrimary, whitelist.size());
+                blPrimary = -1;
+                blAnchor = -1;
+                blSelected.clear();
+            } else {
+                blPrimary = primary;
+                blAnchor = primary;
+                blScroll = scrollToMakeVisible(blScroll, blPrimary, blacklist.size());
+                wlPrimary = -1;
+                wlAnchor = -1;
+                wlSelected.clear();
+            }
         }
 
-        lastAddedValue = moved;
-        lastAddedList = to;
+        if (lastMoved != null) {
+            lastAddedValue = lastMoved;
+            lastAddedList = to;
+        }
     }
 
     private void buildModIdIndex() {
@@ -973,5 +1071,95 @@ public class GuiModViewCell extends GuiScreen {
 
         tabSessionStart = start;
         tabSessionEnd = start + replacement.length();
+    }
+
+    private void applyMultiSelectClick(ActiveList which, int idx, boolean ctrl, boolean shift) {
+        LinkedHashSet<Integer> sel = (which == ActiveList.WL) ? wlSelected : blSelected;
+        List<String> list = (which == ActiveList.WL) ? whitelist : blacklist;
+
+        if (idx < 0 || idx >= list.size()) return;
+
+        if (shift) {
+            int anchor = (which == ActiveList.WL) ? wlAnchor : blAnchor;
+            int primary = (which == ActiveList.WL) ? wlPrimary : blPrimary;
+
+            if (anchor < 0) anchor = (primary >= 0) ? primary : idx;
+
+            sel.clear();
+            int a = Math.min(anchor, idx);
+            int b = Math.max(anchor, idx);
+            for (int i = a; i <= b; i++) sel.add(i);
+
+            if (which == ActiveList.WL) {
+                wlPrimary = idx;
+                wlAnchor = anchor;
+                wlScroll = scrollToMakeVisible(wlScroll, wlPrimary, whitelist.size());
+            } else {
+                blPrimary = idx;
+                blAnchor = anchor;
+                blScroll = scrollToMakeVisible(blScroll, blPrimary, blacklist.size());
+            }
+            return;
+        }
+
+        if (ctrl) {
+            if (sel.contains(idx)) {
+                sel.remove(idx);
+            } else {
+                sel.add(idx);
+            }
+
+            if (which == ActiveList.WL) {
+                wlPrimary = sel.isEmpty() ? -1 : idx;
+                wlAnchor = sel.isEmpty() ? -1 : idx;
+                if (wlPrimary != -1) wlScroll = scrollToMakeVisible(wlScroll, wlPrimary, whitelist.size());
+            } else {
+                blPrimary = sel.isEmpty() ? -1 : idx;
+                blAnchor = sel.isEmpty() ? -1 : idx;
+                if (blPrimary != -1) blScroll = scrollToMakeVisible(blScroll, blPrimary, blacklist.size());
+            }
+            return;
+        }
+
+        // normal click, single select
+        sel.clear();
+        sel.add(idx);
+
+        if (which == ActiveList.WL) {
+            wlPrimary = idx;
+            wlAnchor = idx;
+            wlScroll = scrollToMakeVisible(wlScroll, wlPrimary, whitelist.size());
+        } else {
+            blPrimary = idx;
+            blAnchor = idx;
+            blScroll = scrollToMakeVisible(blScroll, blPrimary, blacklist.size());
+        }
+    }
+
+    private void removeIndicesFromList(ActiveList which, List<String> list, LinkedHashSet<Integer> selectedSet) {
+        if (selectedSet.isEmpty()) return;
+
+        ArrayList<Integer> idxs = new ArrayList<>(selectedSet);
+        Collections.sort(idxs, Collections.reverseOrder()); // remove from end to start
+
+        for (int idx : idxs) {
+            if (idx >= 0 && idx < list.size()) {
+                String removed = list.remove(idx);
+                onRemoved(which, removed);
+            }
+        }
+
+        selectedSet.clear();
+    }
+
+    private void clampSelectionSet(LinkedHashSet<Integer> sel, int size) {
+        if (sel.isEmpty()) return;
+
+        LinkedHashSet<Integer> kept = new LinkedHashSet<>();
+        for (int i : sel) {
+            if (i >= 0 && i < size) kept.add(i);
+        }
+        sel.clear();
+        sel.addAll(kept);
     }
 }
