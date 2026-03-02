@@ -64,3 +64,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Initial publish.
+
+[Unreleased]: https://github.com/NuanKi/AE2ModIDViewCell/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/NuanKi/AE2ModIDViewCell/tree/v1.0.0
+[1.0.5]: https://github.com/NuanKi/AE2ModIDViewCell/tree/v1.0.5
+[1.0.7]: https://github.com/NuanKi/AE2ModIDViewCell/tree/v1.0.7
+[1.1.0]: https://github.com/NuanKi/AE2ModIDViewCell/tree/v1.1.0
+[1.1.2]: https://github.com/NuanKi/AE2ModIDViewCell/tree/v1.1.2
+[1.1.5]: https://github.com/NuanKi/AE2ModIDViewCell/tree/v1.1.5
