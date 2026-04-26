@@ -51,11 +51,12 @@ jobs:
                 exit 1
               fi
               version="${RELEASE_TAG#mc1.21.1-v}"
-              archive_base="midviewcell-neoforge-1.21.1"
+              archive_base="ae2-modIdViewCell-neoforge-1.21.1"
               game_version="1.21.1"
               loader="neoforge"
               java_version="21"
-              release_name="Mod ID View Cell ${version} for Minecraft 1.21.1 NeoForge"
+              release_name="${archive_base}-${version}.jar"
+              curseforge_dependencies="223794(required)"
               ;;
             "1.12.2-forge")
               if [[ ! "$RELEASE_TAG" =~ ^v[0-9A-Za-z.+_-]+$ ]]; then
@@ -67,7 +68,8 @@ jobs:
               game_version="1.12.2"
               loader="forge"
               java_version="8"
-              release_name="AE2 ModID View Cell ${version} for Minecraft 1.12.2 Forge"
+              release_name="${archive_base}-${version}.jar"
+              curseforge_dependencies="570458(required),419286(required)"
               ;;
             *)
               echo "Unknown release target: $RELEASE_TARGET"
@@ -81,6 +83,7 @@ jobs:
           echo "loader=$loader" >> "$GITHUB_OUTPUT"
           echo "java_version=$java_version" >> "$GITHUB_OUTPUT"
           echo "release_name=$release_name" >> "$GITHUB_OUTPUT"
+          echo "curseforge_dependencies=$curseforge_dependencies" >> "$GITHUB_OUTPUT"
 
       - name: Checkout release tag
         uses: actions/checkout@v4
@@ -140,6 +143,50 @@ jobs:
           echo "sources_jar=$sources_jar" >> "$GITHUB_OUTPUT"
           echo "dev_jar=$dev_jar" >> "$GITHUB_OUTPUT"
 
+      - name: Extract release changelog
+        id: changelog
+        shell: bash
+        env:
+          VERSION: ${{ steps.target.outputs.version }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ["VERSION"]
+          tag = os.environ["RELEASE_TAG"]
+          changelog = Path("CHANGELOG.md")
+          output = Path("build/release-changelog.md")
+
+          lines = changelog.read_text(encoding="utf-8").splitlines()
+          heading = re.compile(rf"^## \[{re.escape(version)}\](?:\s+-\s+.*)?\s*$")
+          next_heading = re.compile(r"^## \[")
+          link_ref_block = re.compile(r"^\[[^\]]+\]:\s+")
+
+          start = next((i for i, line in enumerate(lines) if heading.match(line)), None)
+          if start is None:
+              raise SystemExit(f"Could not find changelog section for version {version}")
+
+          end = len(lines)
+          for i in range(start + 1, len(lines)):
+              if next_heading.match(lines[i]) or link_ref_block.match(lines[i]):
+                  end = i
+                  break
+
+          section = lines[start:end]
+          while section and not section[-1].strip():
+              section.pop()
+
+          version_ref = f"[{version}]: https://github.com/NuanKi/AE2ModIDViewCell/tree/{tag}"
+          section.extend(["", version_ref])
+
+          output.parent.mkdir(parents=True, exist_ok=True)
+          output.write_text("\n".join(section) + "\n", encoding="utf-8")
+          PY
+          echo "file=build/release-changelog.md" >> "$GITHUB_OUTPUT"
+
       - name: Upload dry run artifacts
         if: ${{ inputs.dry_run }}
         uses: actions/upload-artifact@v4
@@ -149,6 +196,7 @@ jobs:
             ${{ steps.files.outputs.jar }}
             ${{ steps.files.outputs.sources_jar }}
             ${{ steps.files.outputs.dev_jar }}
+            ${{ steps.changelog.outputs.file }}
           if-no-files-found: error
 
       - name: Dry run summary
@@ -169,6 +217,8 @@ jobs:
             echo "- ${{ steps.files.outputs.jar }}"
             echo "- ${{ steps.files.outputs.sources_jar }}"
             echo "- ${{ steps.files.outputs.dev_jar }}"
+            echo ""
+            echo "Changelog file: ${{ steps.changelog.outputs.file }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish to CurseForge and GitHub
@@ -178,6 +228,7 @@ jobs:
           curseforge-id: 1456030
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
           curseforge-files: ${{ steps.files.outputs.jar }}
+          curseforge-dependencies: ${{ steps.target.outputs.curseforge_dependencies }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           github-tag: ${{ inputs.tag }}
           github-files: |
@@ -187,7 +238,7 @@ jobs:
           name: ${{ steps.target.outputs.release_name }}
           version: ${{ steps.target.outputs.version }}
           version-type: ${{ inputs.release_type }}
-          changelog-file: CHANGELOG.md
+          changelog-file: ${{ steps.changelog.outputs.file }}
           loaders: ${{ steps.target.outputs.loader }}
           game-versions: ${{ steps.target.outputs.game_version }}
           java: ${{ steps.target.outputs.java_version }}
