@@ -55,7 +55,7 @@ jobs:
               game_version="1.21.1"
               loader="neoforge"
               java_version="21"
-              release_name="Mod ID View Cell ${version} for Minecraft 1.21.1 NeoForge"
+              release_name="${archive_base}-${version}.jar"
               ;;
             "1.12.2-forge")
               if [[ ! "$RELEASE_TAG" =~ ^v[0-9A-Za-z.+_-]+$ ]]; then
@@ -67,7 +67,7 @@ jobs:
               game_version="1.12.2"
               loader="forge"
               java_version="8"
-              release_name="AE2 ModID View Cell ${version} for Minecraft 1.12.2 Forge"
+              release_name="${archive_base}-${version}.jar"
               ;;
             *)
               echo "Unknown release target: $RELEASE_TARGET"
@@ -140,6 +140,43 @@ jobs:
           echo "sources_jar=$sources_jar" >> "$GITHUB_OUTPUT"
           echo "dev_jar=$dev_jar" >> "$GITHUB_OUTPUT"
 
+      - name: Extract release changelog
+        id: changelog
+        shell: bash
+        env:
+          VERSION: ${{ steps.target.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          version = os.environ["VERSION"]
+          changelog = Path("CHANGELOG.md")
+          output = Path("build/release-changelog.md")
+
+          lines = changelog.read_text(encoding="utf-8").splitlines()
+          heading = re.compile(rf"^## \[{re.escape(version)}\](?:\s+-\s+.*)?\s*$")
+
+          start = next((i for i, line in enumerate(lines) if heading.match(line)), None)
+          if start is None:
+              raise SystemExit(f"Could not find changelog section for version {version}")
+
+          end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith("## [")), len(lines))
+          section = lines[start:end]
+          while section and not section[-1].strip():
+              section.pop()
+
+          link_ref = re.compile(rf"^\[{re.escape(version)}\]:")
+          refs = [line for line in lines if link_ref.match(line)]
+          if refs:
+              section.extend(["", *refs])
+
+          output.parent.mkdir(parents=True, exist_ok=True)
+          output.write_text("\n".join(section) + "\n", encoding="utf-8")
+          PY
+          echo "file=build/release-changelog.md" >> "$GITHUB_OUTPUT"
+
       - name: Upload dry run artifacts
         if: ${{ inputs.dry_run }}
         uses: actions/upload-artifact@v4
@@ -149,6 +186,7 @@ jobs:
             ${{ steps.files.outputs.jar }}
             ${{ steps.files.outputs.sources_jar }}
             ${{ steps.files.outputs.dev_jar }}
+            ${{ steps.changelog.outputs.file }}
           if-no-files-found: error
 
       - name: Dry run summary
@@ -169,6 +207,8 @@ jobs:
             echo "- ${{ steps.files.outputs.jar }}"
             echo "- ${{ steps.files.outputs.sources_jar }}"
             echo "- ${{ steps.files.outputs.dev_jar }}"
+            echo ""
+            echo "Changelog file: ${{ steps.changelog.outputs.file }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish to CurseForge and GitHub
@@ -187,7 +227,7 @@ jobs:
           name: ${{ steps.target.outputs.release_name }}
           version: ${{ steps.target.outputs.version }}
           version-type: ${{ inputs.release_type }}
-          changelog-file: CHANGELOG.md
+          changelog-file: ${{ steps.changelog.outputs.file }}
           loaders: ${{ steps.target.outputs.loader }}
           game-versions: ${{ steps.target.outputs.game_version }}
           java: ${{ steps.target.outputs.java_version }}
