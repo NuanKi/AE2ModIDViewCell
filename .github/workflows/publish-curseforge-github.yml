@@ -69,7 +69,7 @@ jobs:
               loader="forge"
               java_version="8"
               release_name="${archive_base}-${version}.jar"
-              curseforge_dependencies=""
+              curseforge_dependencies="570458(required),419286(required)"
               ;;
             *)
               echo "Unknown release target: $RELEASE_TARGET"
@@ -148,6 +148,7 @@ jobs:
         shell: bash
         env:
           VERSION: ${{ steps.target.outputs.version }}
+          RELEASE_TAG: ${{ inputs.tag }}
         run: |
           python3 - <<'PY'
           import os
@@ -155,25 +156,31 @@ jobs:
           from pathlib import Path
 
           version = os.environ["VERSION"]
+          tag = os.environ["RELEASE_TAG"]
           changelog = Path("CHANGELOG.md")
           output = Path("build/release-changelog.md")
 
           lines = changelog.read_text(encoding="utf-8").splitlines()
           heading = re.compile(rf"^## \[{re.escape(version)}\](?:\s+-\s+.*)?\s*$")
+          next_heading = re.compile(r"^## \[")
+          link_ref_block = re.compile(r"^\[[^\]]+\]:\s+")
 
           start = next((i for i, line in enumerate(lines) if heading.match(line)), None)
           if start is None:
               raise SystemExit(f"Could not find changelog section for version {version}")
 
-          end = next((i for i in range(start + 1, len(lines)) if lines[i].startswith("## [")), len(lines))
+          end = len(lines)
+          for i in range(start + 1, len(lines)):
+              if next_heading.match(lines[i]) or link_ref_block.match(lines[i]):
+                  end = i
+                  break
+
           section = lines[start:end]
           while section and not section[-1].strip():
               section.pop()
 
-          link_ref = re.compile(rf"^\[{re.escape(version)}\]:")
-          refs = [line for line in lines if link_ref.match(line)]
-          if refs:
-              section.extend(["", *refs])
+          version_ref = f"[{version}]: https://github.com/NuanKi/AE2ModIDViewCell/tree/{tag}"
+          section.extend(["", version_ref])
 
           output.parent.mkdir(parents=True, exist_ok=True)
           output.write_text("\n".join(section) + "\n", encoding="utf-8")
