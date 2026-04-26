@@ -90,7 +90,7 @@ repositories {
 }
 
 base {
-    archivesName = "${mod_id}-${mod_loader}-${minecraft_version}"
+    archivesName = "${mod_archives_base_name}-${mod_loader}-${minecraft_version}"
 }
 
 // Mojang ships Java 21 to end users in 1.21.1, so mods should target Java 21.
