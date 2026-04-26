@@ -318,7 +318,7 @@ tasks.withType(ScalaCompile).configureEach {
 // Try to gather mod version from git tags if version is not manually specified
 if (!modVersion) {
     try {
-        modVersion = gitVersion()
+        modVersion = runShell(['git', 'describe', '--tags', '--abbrev=0'])
     } catch (Exception ignored) {
         out.style(Style.Failure).text(
                 "Mod version could not be determined! Property 'modVersion' is not set, and either git is not installed or no git tags exist.\n" +
@@ -328,17 +328,13 @@ if (!modVersion) {
     }
 }
 
-if (includeMCVersionJar.toBoolean()){
-    version = "${minecraftVersion}-${modVersion}"
-}
-else {
-    version = modVersion
-}
+modVersion = modVersion.toString().replaceFirst(/^v/, '')
+version = modVersion
 
 group = modGroup
 
 base {
-    archivesName = modArchivesBaseName
+    archivesName = "${modArchivesBaseName}-${minecraftVersion}"
 }
 
 minecraft {

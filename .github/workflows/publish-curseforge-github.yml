@@ -3,8 +3,16 @@ name: Publish Release
 on:
   workflow_dispatch:
     inputs:
+      target:
+        description: "Release line to publish"
+        required: true
+        default: "1.21.1-neoforge"
+        type: choice
+        options:
+          - "1.21.1-neoforge"
+          - "1.12.2-forge"
       tag:
-        description: "Release tag to publish, for example mc1.21.1-v1.0.0"
+        description: "Release tag, for example mc1.21.1-v1.0.0 or v1.1.5"
         required: true
         type: string
       release_type:
@@ -29,15 +37,50 @@ jobs:
       contents: write
 
     steps:
-      - name: Validate tag
+      - name: Resolve target metadata
+        id: target
         shell: bash
         env:
+          RELEASE_TARGET: ${{ inputs.target }}
           RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          if [[ ! "$RELEASE_TAG" =~ ^mc1\.21\.1-v[0-9A-Za-z.+_-]+$ ]]; then
-            echo "Tag must look like mc1.21.1-v1.0.0"
-            exit 1
-          fi
+          case "$RELEASE_TARGET" in
+            "1.21.1-neoforge")
+              if [[ ! "$RELEASE_TAG" =~ ^mc1\.21\.1-v[0-9A-Za-z.+_-]+$ ]]; then
+                echo "1.21.1 NeoForge tags must look like mc1.21.1-v1.0.0"
+                exit 1
+              fi
+              version="${RELEASE_TAG#mc1.21.1-v}"
+              archive_base="midviewcell-neoforge-1.21.1"
+              game_version="1.21.1"
+              loader="neoforge"
+              java_version="21"
+              release_name="Mod ID View Cell ${version} for Minecraft 1.21.1 NeoForge"
+              ;;
+            "1.12.2-forge")
+              if [[ ! "$RELEASE_TAG" =~ ^v[0-9A-Za-z.+_-]+$ ]]; then
+                echo "1.12.2 Forge tags must look like v1.1.5"
+                exit 1
+              fi
+              version="${RELEASE_TAG#v}"
+              archive_base="ae2-modIdViewCell-1.12.2"
+              game_version="1.12.2"
+              loader="forge"
+              java_version="8"
+              release_name="AE2 ModID View Cell ${version} for Minecraft 1.12.2 Forge"
+              ;;
+            *)
+              echo "Unknown release target: $RELEASE_TARGET"
+              exit 1
+              ;;
+          esac
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "archive_base=$archive_base" >> "$GITHUB_OUTPUT"
+          echo "game_version=$game_version" >> "$GITHUB_OUTPUT"
+          echo "loader=$loader" >> "$GITHUB_OUTPUT"
+          echo "java_version=$java_version" >> "$GITHUB_OUTPUT"
+          echo "release_name=$release_name" >> "$GITHUB_OUTPUT"
 
       - name: Checkout release tag
         uses: actions/checkout@v4
@@ -55,20 +98,22 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
       - name: Build with Gradle
         run: ./gradlew build
 
-      - name: Resolve release metadata
-        id: meta
+      - name: Resolve release files
+        id: files
         shell: bash
         env:
-          RELEASE_TAG: ${{ inputs.tag }}
+          ARCHIVE_BASE: ${{ steps.target.outputs.archive_base }}
+          VERSION: ${{ steps.target.outputs.version }}
         run: |
-          version="$RELEASE_TAG"
-          version="${version#mc1.21.1-v}"
-          jar="build/libs/midviewcell-neoforge-1.21.1-${version}.jar"
-          sources_jar="build/libs/midviewcell-neoforge-1.21.1-${version}-sources.jar"
-          dev_jar="build/libs/midviewcell-neoforge-1.21.1-${version}-dev.jar"
+          jar="build/libs/${ARCHIVE_BASE}-${VERSION}.jar"
+          sources_jar="build/libs/${ARCHIVE_BASE}-${VERSION}-sources.jar"
+          dev_jar="build/libs/${ARCHIVE_BASE}-${VERSION}-dev.jar"
 
           if [[ ! -f "$jar" ]]; then
             echo "Expected release jar was not built: $jar"
@@ -91,7 +136,6 @@ jobs:
             exit 1
           fi
 
-          echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "jar=$jar" >> "$GITHUB_OUTPUT"
           echo "sources_jar=$sources_jar" >> "$GITHUB_OUTPUT"
           echo "dev_jar=$dev_jar" >> "$GITHUB_OUTPUT"
@@ -100,11 +144,11 @@ jobs:
         if: ${{ inputs.dry_run }}
         uses: actions/upload-artifact@v4
         with:
-          name: dry-run-${{ inputs.tag }}
+          name: dry-run-${{ inputs.target }}-${{ inputs.tag }}
           path: |
-            ${{ steps.meta.outputs.jar }}
-            ${{ steps.meta.outputs.sources_jar }}
-            ${{ steps.meta.outputs.dev_jar }}
+            ${{ steps.files.outputs.jar }}
+            ${{ steps.files.outputs.sources_jar }}
+            ${{ steps.files.outputs.dev_jar }}
           if-no-files-found: error
 
       - name: Dry run summary
@@ -116,10 +160,15 @@ jobs:
             echo ""
             echo "No files were published to CurseForge or GitHub Releases."
             echo ""
+            echo "Target: ${{ inputs.target }}"
+            echo "Tag: ${{ inputs.tag }}"
+            echo "Game version: ${{ steps.target.outputs.game_version }}"
+            echo "Loader: ${{ steps.target.outputs.loader }}"
+            echo ""
             echo "Verified files:"
-            echo "- ${{ steps.meta.outputs.jar }}"
-            echo "- ${{ steps.meta.outputs.sources_jar }}"
-            echo "- ${{ steps.meta.outputs.dev_jar }}"
+            echo "- ${{ steps.files.outputs.jar }}"
+            echo "- ${{ steps.files.outputs.sources_jar }}"
+            echo "- ${{ steps.files.outputs.dev_jar }}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish to CurseForge and GitHub
@@ -128,18 +177,18 @@ jobs:
         with:
           curseforge-id: 1456030
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
-          curseforge-files: ${{ steps.meta.outputs.jar }}
+          curseforge-files: ${{ steps.files.outputs.jar }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           github-tag: ${{ inputs.tag }}
           github-files: |
-            ${{ steps.meta.outputs.jar }}
-            ${{ steps.meta.outputs.sources_jar }}
-            ${{ steps.meta.outputs.dev_jar }}
-          name: "Mod ID View Cell ${{ steps.meta.outputs.version }} for Minecraft 1.21.1"
-          version: ${{ steps.meta.outputs.version }}
+            ${{ steps.files.outputs.jar }}
+            ${{ steps.files.outputs.sources_jar }}
+            ${{ steps.files.outputs.dev_jar }}
+          name: ${{ steps.target.outputs.release_name }}
+          version: ${{ steps.target.outputs.version }}
           version-type: ${{ inputs.release_type }}
           changelog-file: CHANGELOG.md
-          loaders: neoforge
-          game-versions: 1.21.1
-          java: 21
+          loaders: ${{ steps.target.outputs.loader }}
+          game-versions: ${{ steps.target.outputs.game_version }}
+          java: ${{ steps.target.outputs.java_version }}
           fail-mode: fail
