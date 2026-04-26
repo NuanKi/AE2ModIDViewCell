@@ -51,11 +51,12 @@ jobs:
                 exit 1
               fi
               version="${RELEASE_TAG#mc1.21.1-v}"
-              archive_base="midviewcell-neoforge-1.21.1"
+              archive_base="ae2-modIdViewCell-neoforge-1.21.1"
               game_version="1.21.1"
               loader="neoforge"
               java_version="21"
               release_name="${archive_base}-${version}.jar"
+              curseforge_dependencies="223794(required)"
               ;;
             "1.12.2-forge")
               if [[ ! "$RELEASE_TAG" =~ ^v[0-9A-Za-z.+_-]+$ ]]; then
@@ -68,6 +69,7 @@ jobs:
               loader="forge"
               java_version="8"
               release_name="${archive_base}-${version}.jar"
+              curseforge_dependencies=""
               ;;
             *)
               echo "Unknown release target: $RELEASE_TARGET"
@@ -81,6 +83,7 @@ jobs:
           echo "loader=$loader" >> "$GITHUB_OUTPUT"
           echo "java_version=$java_version" >> "$GITHUB_OUTPUT"
           echo "release_name=$release_name" >> "$GITHUB_OUTPUT"
+          echo "curseforge_dependencies=$curseforge_dependencies" >> "$GITHUB_OUTPUT"
 
       - name: Checkout release tag
         uses: actions/checkout@v4
@@ -218,6 +221,7 @@ jobs:
           curseforge-id: 1456030
           curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
           curseforge-files: ${{ steps.files.outputs.jar }}
+          curseforge-dependencies: ${{ steps.target.outputs.curseforge_dependencies }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           github-tag: ${{ inputs.tag }}
           github-files: |
