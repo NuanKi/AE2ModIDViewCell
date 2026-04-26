@@ -1,5 +1,5 @@
 {
-  "item.midviewcell.mod_id_view_cell": "Mod ID View Cell",
+  "item.ae2modidviewcell.mod_id_view_cell": "Mod ID View Cell",
   "item.midviewcell.mod_id_view_cell.tooltip.mod_id_whitelist": "Mod ID whitelist: %s",
   "item.midviewcell.mod_id_view_cell.tooltip.mod_id_blacklist": "Mod ID blacklist: %s",
   "item.midviewcell.mod_id_view_cell.tooltip.mod_id_regex": "Regex supported (full match).",

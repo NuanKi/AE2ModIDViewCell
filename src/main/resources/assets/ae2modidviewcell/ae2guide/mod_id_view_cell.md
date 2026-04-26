@@ -2,17 +2,17 @@
 navigation:
     parent: ae2:items-blocks-machines/items-blocks-machines-index.md
     title: Mod ID View Cell
-    icon: midviewcell:mod_id_view_cell
+    icon: ae2modidviewcell:mod_id_view_cell
     position: 410
 categories:
     - tools
 item_ids:
-    - midviewcell:mod_id_view_cell
+    - ae2modidviewcell:mod_id_view_cell
 ---
 
 # Mod ID View Cell
 
-<ItemImage id="midviewcell:mod_id_view_cell" scale="2" />
+<ItemImage id="ae2modidviewcell:mod_id_view_cell" scale="2" />
 
 The Mod ID View Cell is a variant of the <ItemLink id="ae2:view_cell" /> that filters terminal entries by the mod that owns them.
 
@@ -112,4 +112,4 @@ It is not edited in the Cell Workbench because fuzzy and inverter cards are not 
 
 ## Recipe
 
-<Recipe id="midviewcell:mod_id_view_cell" />
+<Recipe id="ae2modidviewcell:mod_id_view_cell" />

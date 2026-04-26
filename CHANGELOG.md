@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Rebuilt the old 1.12.2 behavior around modern AE2 APIs, NeoForge networking, item data components, and current screen widgets.
-- Kept the mod ID as `midviewcell` for compatibility with the existing project identity.
+- Kept the mod ID as `ae2modidviewcell` for compatibility with the existing project identity.
 
 [Unreleased]: https://github.com/NuanKi/AE2ModIDViewCell/compare/mc1.21.1-v1.0.0...1.21.1-neoforge
 [1.0.0]: https://github.com/NuanKi/AE2ModIDViewCell/tree/mc1.21.1-v1.0.0

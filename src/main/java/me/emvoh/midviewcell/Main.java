@@ -18,7 +18,7 @@ import org.slf4j.Logger;
 
 @Mod(Main.MODID)
 public class Main {
-    public static final String MODID = "midviewcell";
+    public static final String MODID = "ae2modidviewcell";
     public static final Logger LOGGER = LogUtils.getLogger();
 
     public static final DeferredRegister.Items ITEMS = DeferredRegister.createItems(MODID);
