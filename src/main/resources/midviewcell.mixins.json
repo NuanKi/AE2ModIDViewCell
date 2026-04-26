@@ -1,0 +1,17 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "me.emvoh.midviewcell.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "MEStorageMenuMixin",
+    "RestrictedInputSlotMixin",
+    "ViewCellItemMixin"
+  ],
+  "client": [
+    "AEBaseScreenMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
