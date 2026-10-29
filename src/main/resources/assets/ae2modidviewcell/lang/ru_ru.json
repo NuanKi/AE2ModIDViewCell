@@ -1,0 +1,28 @@
+{
+  "item.ae2modidviewcell.mod_id_view_cell": "Ячейка просмотра по ID модов",
+  "item.midviewcell.mod_id_view_cell.tooltip.mod_id_whitelist": "Белый список ID модов: %s",
+  "item.midviewcell.mod_id_view_cell.tooltip.mod_id_blacklist": "Чёрный список ID модов: %s",
+  "item.midviewcell.mod_id_view_cell.tooltip.mod_id_regex": "Поддерживаются регулярные выражения (Regex).",
+  "item.midviewcell.mod_id_view_cell.tooltip.edit": "Нажмите ПКМ для настройки фильтров.",
+  "item.midviewcell.mod_id_view_cell.tooltip.mod_id_none": "пусто",
+  
+  "tooltip.appliedenergistics2.mod_view_cell.hold_shift": "Удерживайте Shift для подробностей",
+  "tooltip.appliedenergistics2.mod_view_cell.whitelist": "Белый список",
+  "tooltip.appliedenergistics2.mod_view_cell.blacklist": "Чёрный список",
+  "tooltip.appliedenergistics2.mod_view_cell.none": "пусто",
+  "tooltip.appliedenergistics2.mod_view_cell.entry": "%s",
+  
+  "screen.midviewcell.mod_id_filters.title": "Настройка фильтров по ID модов",
+  "screen.midviewcell.mod_id_filters.entry": "Запись ID мода",
+  "screen.midviewcell.mod_id_filters.placeholder": "Введите ID модов через пробел/запятую",
+  "screen.midviewcell.mod_id_filters.whitelist": "Белый список",
+  "screen.midviewcell.mod_id_filters.blacklist": "Чёрный список",
+  "screen.midviewcell.mod_id_filters.hint": "Используйте ID модов. Поддерживаются регулярные выражения.",
+  
+  "screen.midviewcell.mod_id_filters.add_whitelist": "Внести в белый список",
+  "screen.midviewcell.mod_id_filters.add_blacklist": "Внести в чёрный список",
+  "screen.midviewcell.mod_id_filters.remove_selected": "Удалить выбранное",
+  "screen.midviewcell.mod_id_filters.clear_all": "Очистить всё",
+  "screen.midviewcell.mod_id_filters.save": "Сохранить",
+  "screen.midviewcell.mod_id_filters.cancel": "Отмена"
+}
